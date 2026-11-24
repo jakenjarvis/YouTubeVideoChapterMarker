@@ -4,6 +4,7 @@ import type { AnalysisProgress, InternalScene } from '../types/video';
 import { splitTimecodeParts } from '../utils/timecode';
 
 interface InternalScenePanelProps {
+  sourceType: 'local' | 'youtube';
   scenes: InternalScene[];
   progress: AnalysisProgress;
   currentFrameIndex: number;
@@ -19,6 +20,7 @@ const reasonLabelMap: Record<InternalScene['reason'], string> = {
 };
 
 export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
+  sourceType,
   scenes,
   progress,
   currentFrameIndex,
@@ -79,12 +81,16 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
           <div className="py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
             <Compass className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
             <p className="text-sm font-medium text-[#E2E8F0]">
-              {progress.sceneDetectStatus === 'running'
-                ? 'シーン変化を解析しています...'
-                : '内部シーンはまだ検出されていません'}
+              {sourceType === 'youtube'
+                ? 'YouTube動画では自動シーン検出は利用できません'
+                : progress.sceneDetectStatus === 'running'
+                  ? 'シーン変化を解析しています...'
+                  : '内部シーンはまだ検出されていません'}
             </p>
-            <p className="mt-1.5 text-xs text-[#94A0B2]">
-              バックグラウンドで映像フレーム差分と音声エネルギー変化を解析し、随時ここに追加されます。
+            <p className="mt-1.5 text-xs text-[#94A0B2] leading-relaxed">
+              {sourceType === 'youtube'
+                ? 'ブラウザのセキュリティ仕様上、YouTube埋め込み動画の映像フレーム・音声波形への直接アクセスが制限されているため、ローカル動画読み込み時のみ利用できます。概要欄から読み込んだチャプターは「マーカー＆チャプター」タブで編集できます。'
+                : 'バックグラウンドで映像フレーム差分と音声エネルギー変化を解析し、随時ここに追加されます。'}
             </p>
           </div>
         ) : (

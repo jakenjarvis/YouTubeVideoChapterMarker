@@ -528,6 +528,7 @@ export async function analyzeVideoAndBuildFrameMap(
           : [];
 
     const metadata: VideoMetadata = {
+      sourceType: 'local',
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type || 'video/mp4',
@@ -653,6 +654,7 @@ export async function analyzeVideoAndBuildFrameMap(
         : [];
 
   const metadata: VideoMetadata = {
+    sourceType: 'local',
     fileName: file.name,
     fileSize: file.size,
     mimeType: file.type || 'video/*',
@@ -697,6 +699,45 @@ export async function analyzeVideoAndBuildFrameMap(
   if (signal.aborted) return;
   callbacks.onChunk(frames, 100, durationSec);
   callbacks.onComplete(frames, { ...metadata, estimatedTotalFrames: frames.length });
+}
+
+/**
+ * Builds a uniform Frame Correspondence List in non-blocking chunks (used for YouTube streams).
+ */
+export async function buildUniformFrameMap(
+  durationSec: number,
+  fps: number,
+  onChunk: (frames: FrameMapEntry[], progressPercent: number, analyzedMaxTimeSec: number) => void,
+  signal: AbortSignal
+): Promise<FrameMapEntry[]> {
+  const safeDuration = Math.max(1, durationSec);
+  const safeFps = fps > 0 && fps <= 120 ? fps : 30;
+  const totalFrames = Math.max(1, Math.round(safeDuration * safeFps));
+  const frameDur = 1 / safeFps;
+  const frames: FrameMapEntry[] = [];
+  const CHUNK_SIZE = 25000;
+
+  for (let i = 0; i < totalFrames; i++) {
+    const t = Math.min(safeDuration, i * frameDur);
+    frames.push({
+      frameIndex: i,
+      timeSec: t,
+      durationSec: frameDur,
+      isKeyFrame: i % Math.max(1, Math.round(safeFps)) === 0,
+    });
+
+    if (i === 299 || (i + 1) % CHUNK_SIZE === 0) {
+      if (signal.aborted) return frames;
+      const pct = Math.min(99, Math.round(((i + 1) / totalFrames) * 100));
+      onChunk(frames.slice(), pct, t);
+      await nextTick();
+    }
+  }
+
+  if (!signal.aborted) {
+    onChunk(frames, 100, safeDuration);
+  }
+  return frames;
 }
 
 /**

@@ -12,6 +12,8 @@ import {
   VolumeX,
   Bookmark,
   Compass,
+  Youtube,
+  X,
 } from 'lucide-react';
 import type {
   AnalysisProgress,
@@ -23,7 +25,7 @@ import type {
   PlaybackMode,
   VideoMetadata,
 } from './types/video';
-import { analyzeVideoAndBuildFrameMap } from './utils/mp4Parser';
+import { analyzeVideoAndBuildFrameMap, buildUniformFrameMap } from './utils/mp4Parser';
 import { detectInternalScenesInBackground } from './utils/sceneDetector';
 import { generateSampleVideoFile } from './utils/sampleVideoGenerator';
 import {
@@ -31,6 +33,11 @@ import {
   findFrameIndexByTime,
   type ParsedTypeBEntry,
 } from './utils/timecode';
+import {
+  extractYouTubeVideoId,
+  parseChaptersFromDescription,
+  type YouTubeVideoInfoResponse,
+} from './utils/youtube';
 import { LoadingView } from './components/LoadingView';
 import { MetadataBar } from './components/MetadataBar';
 import { TimecodeDisplay } from './components/TimecodeDisplay';
@@ -39,6 +46,11 @@ import { ChapterTimelinePanel } from './components/ChapterTimelinePanel';
 import { InternalScenePanel } from './components/InternalScenePanel';
 import { ImportExportModal } from './components/ImportExportModal';
 import { ShortcutHelpModal } from './components/ShortcutHelpModal';
+import {
+  YouTubePlayerView,
+  type YouTubePlayerController,
+} from './components/YouTubePlayerView';
+import { YouTubeUrlModal } from './components/YouTubeUrlModal';
 
 const INITIAL_PROGRESS: AnalysisProgress = {
   frameIndexPercent: 0,
@@ -86,11 +98,14 @@ export default function App() {
 
   // Playback & Frame Correspondence state
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const youtubeControllerRef = useRef<YouTubePlayerController | null>(null);
+  const sourceTypeRef = useRef<'local' | 'youtube'>('local');
   const frameMapRef = useRef<FrameMapEntry[]>([]);
   const analyzedMaxTimeRef = useRef<number>(0);
   const playbackModeRef = useRef<PlaybackMode>('paused');
   const reverseVirtualTimeRef = useRef<number>(0);
   const lastRafTimeRef = useRef<number>(0);
+  const lastYtReverseSeekMsRef = useRef<number>(0);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const currentUrlRef = useRef<string | null>(null);
 
@@ -98,6 +113,13 @@ export default function App() {
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('paused');
   const [isMuted, setIsMuted] = useState(false);
+
+  // YouTube loading & notification state
+  const [isYouTubeLoading, setIsYouTubeLoading] = useState(false);
+  const [isYouTubeModalOpen, setIsYouTubeModalOpen] = useState(false);
+  const [youTubeModalInitialTab, setYouTubeModalInitialTab] = useState<'load' | 'description'>('load');
+  const [youTubeModalError, setYouTubeModalError] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   // Markers & Chapter Titles (1-to-1 optional; supports untitled markers & unassigned titles)
   const [markers, setMarkers] = useState<Marker[]>([]);
@@ -117,6 +139,10 @@ export default function App() {
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
 
   const hiddenFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    sourceTypeRef.current = metadata?.sourceType ?? 'local';
+  }, [metadata?.sourceType]);
 
   // Keep layout mode & sidebar width safely clamped when the browser window resizes
   useEffect(() => {
@@ -233,9 +259,13 @@ export default function App() {
   }, []);
 
   const pausePlayback = useCallback(() => {
-    const v = videoRef.current;
-    if (v && !v.paused) {
-      v.pause();
+    if (sourceTypeRef.current === 'youtube') {
+      youtubeControllerRef.current?.pause();
+    } else {
+      const v = videoRef.current;
+      if (v && !v.paused) {
+        v.pause();
+      }
     }
     playbackModeRef.current = 'paused';
     setPlaybackMode('paused');
@@ -253,8 +283,12 @@ export default function App() {
     if (!entry) return;
 
     if (!keepPlaying) {
-      const v = videoRef.current;
-      if (v && !v.paused) v.pause();
+      if (sourceTypeRef.current === 'youtube') {
+        youtubeControllerRef.current?.pause();
+      } else {
+        const v = videoRef.current;
+        if (v && !v.paused) v.pause();
+      }
       playbackModeRef.current = 'paused';
       setPlaybackMode('paused');
     }
@@ -263,12 +297,16 @@ export default function App() {
     setCurrentTimeSec(entry.timeSec);
     reverseVirtualTimeRef.current = entry.timeSec;
 
-    const v = videoRef.current;
-    if (v) {
-      try {
-        v.currentTime = entry.timeSec;
-      } catch {
-        // Video element may not be ready yet; loadeddata listener will sync
+    if (sourceTypeRef.current === 'youtube') {
+      youtubeControllerRef.current?.seekTo(entry.timeSec, true);
+    } else {
+      const v = videoRef.current;
+      if (v) {
+        try {
+          v.currentTime = entry.timeSec;
+        } catch {
+          // Video element may not be ready yet; loadeddata listener will sync
+        }
       }
     }
   }, []);
@@ -289,11 +327,26 @@ export default function App() {
   );
 
   const playForward = useCallback(() => {
-    const v = videoRef.current;
     const frames = frameMapRef.current;
-    if (!v || frames.length === 0) return;
-
+    if (frames.length === 0) return;
     const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
+
+    if (sourceTypeRef.current === 'youtube') {
+      const yt = youtubeControllerRef.current;
+      if (!yt || !yt.isReady()) return;
+      if (yt.getCurrentTime() >= maxAllowed - 0.15) {
+        seekToFrameIndex(0, true);
+      }
+      yt.setMuted(isMuted);
+      playbackModeRef.current = 'forward';
+      setPlaybackMode('forward');
+      yt.play();
+      return;
+    }
+
+    const v = videoRef.current;
+    if (!v) return;
+
     if (v.currentTime >= maxAllowed - 0.04) {
       seekToFrameIndex(0, true);
     }
@@ -308,9 +361,29 @@ export default function App() {
   }, [isMuted, seekToFrameIndex]);
 
   const playReverse = useCallback(() => {
-    const v = videoRef.current;
     const frames = frameMapRef.current;
-    if (!v || frames.length === 0) return;
+    if (frames.length === 0) return;
+
+    if (sourceTypeRef.current === 'youtube') {
+      const yt = youtubeControllerRef.current;
+      if (!yt || !yt.isReady()) return;
+      yt.pause();
+      if (currentFrameIndex <= 0) {
+        const lastIdx = frames.length - 1;
+        seekToFrameIndex(lastIdx, true);
+        reverseVirtualTimeRef.current = frames[lastIdx].timeSec;
+      } else {
+        reverseVirtualTimeRef.current = frames[currentFrameIndex]?.timeSec ?? yt.getCurrentTime();
+      }
+      lastRafTimeRef.current = performance.now();
+      lastYtReverseSeekMsRef.current = 0;
+      playbackModeRef.current = 'reverse';
+      setPlaybackMode('reverse');
+      return;
+    }
+
+    const v = videoRef.current;
+    if (!v) return;
 
     if (!v.paused) v.pause();
 
@@ -353,68 +426,123 @@ export default function App() {
     [currentFrameIndex, currentTimeSec, pausePlayback, seekToTime]
   );
 
-  // 60fps Animation loop for exact forward tracking & smooth reverse playback
+  // 60fps Animation loop for exact forward tracking & smooth reverse playback (local & YouTube)
   useEffect(() => {
     if (appMode !== 'edit') return;
 
     let rafId = 0;
     const tick = (now: number) => {
       const mode = playbackModeRef.current;
-      const v = videoRef.current;
       const frames = frameMapRef.current;
 
-      if (v && frames.length > 0) {
-        if (mode === 'forward') {
-          const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
-          if (v.ended || v.currentTime >= maxAllowed - 0.005) {
-            v.pause();
-            const endIdx = findFrameIndexByTime(frames, maxAllowed);
-            const endEntry = frames[endIdx];
-            if (endEntry) {
-              setCurrentFrameIndex(endEntry.frameIndex);
-              setCurrentTimeSec(endEntry.timeSec);
-            }
-            playbackModeRef.current = 'paused';
-            setPlaybackMode('paused');
-          } else {
-            const idx = findFrameIndexByTime(frames, v.currentTime);
-            const entry = frames[idx];
-            if (entry) {
-              setCurrentFrameIndex(entry.frameIndex);
-              setCurrentTimeSec(entry.timeSec);
-            }
-          }
-        } else if (mode === 'reverse') {
-          const dtSec = Math.min(0.1, Math.max(0, (now - lastRafTimeRef.current) / 1000));
-          lastRafTimeRef.current = now;
-          const nextTime = Math.max(0, reverseVirtualTimeRef.current - dtSec);
-          reverseVirtualTimeRef.current = nextTime;
+      if (frames.length > 0) {
+        if (sourceTypeRef.current === 'youtube') {
+          const yt = youtubeControllerRef.current;
+          if (yt && yt.isReady()) {
+            if (mode === 'forward') {
+              const curT = yt.getCurrentTime();
+              const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
+              if (curT >= maxAllowed - 0.05 && maxAllowed > 0) {
+                yt.pause();
+                const endIdx = findFrameIndexByTime(frames, maxAllowed);
+                const endEntry = frames[endIdx];
+                if (endEntry) {
+                  setCurrentFrameIndex(endEntry.frameIndex);
+                  setCurrentTimeSec(endEntry.timeSec);
+                }
+                playbackModeRef.current = 'paused';
+                setPlaybackMode('paused');
+              } else {
+                const idx = findFrameIndexByTime(frames, curT);
+                const entry = frames[idx];
+                if (entry) {
+                  setCurrentFrameIndex(entry.frameIndex);
+                  setCurrentTimeSec(entry.timeSec);
+                }
+              }
+            } else if (mode === 'reverse') {
+              const dtSec = Math.min(0.1, Math.max(0, (now - lastRafTimeRef.current) / 1000));
+              lastRafTimeRef.current = now;
+              const nextTime = Math.max(0, reverseVirtualTimeRef.current - dtSec);
+              reverseVirtualTimeRef.current = nextTime;
 
-          const idx = findFrameIndexByTime(frames, nextTime);
-          const entry = frames[idx];
-          if (entry) {
-            setCurrentFrameIndex(entry.frameIndex);
-            setCurrentTimeSec(entry.timeSec);
-            // Update video frame smoothly without saturating decoder while seeking
-            if (!v.seeking && Math.abs(v.currentTime - entry.timeSec) > 0.012) {
-              try {
-                v.currentTime = entry.timeSec;
-              } catch {
-                // ignore transient seek errors
+              const idx = findFrameIndexByTime(frames, nextTime);
+              const entry = frames[idx];
+              if (entry) {
+                setCurrentFrameIndex(entry.frameIndex);
+                setCurrentTimeSec(entry.timeSec);
+                // Throttle YouTube iframe seeks cleanly so buffer stays smooth
+                if (now - lastYtReverseSeekMsRef.current >= 140) {
+                  lastYtReverseSeekMsRef.current = now;
+                  yt.seekTo(entry.timeSec, true);
+                }
+              }
+
+              if (nextTime <= 0.0005 || idx <= 0) {
+                yt.seekTo(frames[0].timeSec, true);
+                setCurrentFrameIndex(0);
+                setCurrentTimeSec(frames[0].timeSec);
+                playbackModeRef.current = 'paused';
+                setPlaybackMode('paused');
               }
             }
           }
+        } else {
+          const v = videoRef.current;
+          if (v) {
+            if (mode === 'forward') {
+              const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
+              if (v.ended || v.currentTime >= maxAllowed - 0.005) {
+                v.pause();
+                const endIdx = findFrameIndexByTime(frames, maxAllowed);
+                const endEntry = frames[endIdx];
+                if (endEntry) {
+                  setCurrentFrameIndex(endEntry.frameIndex);
+                  setCurrentTimeSec(endEntry.timeSec);
+                }
+                playbackModeRef.current = 'paused';
+                setPlaybackMode('paused');
+              } else {
+                const idx = findFrameIndexByTime(frames, v.currentTime);
+                const entry = frames[idx];
+                if (entry) {
+                  setCurrentFrameIndex(entry.frameIndex);
+                  setCurrentTimeSec(entry.timeSec);
+                }
+              }
+            } else if (mode === 'reverse') {
+              const dtSec = Math.min(0.1, Math.max(0, (now - lastRafTimeRef.current) / 1000));
+              lastRafTimeRef.current = now;
+              const nextTime = Math.max(0, reverseVirtualTimeRef.current - dtSec);
+              reverseVirtualTimeRef.current = nextTime;
 
-          if (nextTime <= 0.0005 || idx <= 0) {
-            try {
-              v.currentTime = frames[0].timeSec;
-            } catch {
-              // ignore
+              const idx = findFrameIndexByTime(frames, nextTime);
+              const entry = frames[idx];
+              if (entry) {
+                setCurrentFrameIndex(entry.frameIndex);
+                setCurrentTimeSec(entry.timeSec);
+                // Update video frame smoothly without saturating decoder while seeking
+                if (!v.seeking && Math.abs(v.currentTime - entry.timeSec) > 0.012) {
+                  try {
+                    v.currentTime = entry.timeSec;
+                  } catch {
+                    // ignore transient seek errors
+                  }
+                }
+              }
+
+              if (nextTime <= 0.0005 || idx <= 0) {
+                try {
+                  v.currentTime = frames[0].timeSec;
+                } catch {
+                  // ignore
+                }
+                setCurrentFrameIndex(0);
+                setCurrentTimeSec(frames[0].timeSec);
+                playbackModeRef.current = 'paused';
+                setPlaybackMode('paused');
+              }
             }
-            setCurrentFrameIndex(0);
-            setCurrentTimeSec(frames[0].timeSec);
-            playbackModeRef.current = 'paused';
-            setPlaybackMode('paused');
           }
         }
       }
@@ -426,7 +554,7 @@ export default function App() {
     return () => cancelAnimationFrame(rafId);
   }, [appMode]);
 
-  // Step 1 -> Step 2 -> Step 3 -> Step 4 Pipeline
+  // Step 1 -> Step 2 -> Step 3 -> Step 4 Pipeline (Local Video File)
   const handleSelectFile = useCallback((file: File) => {
     // Abort any prior pipeline
     analysisAbortRef.current?.abort();
@@ -440,7 +568,9 @@ export default function App() {
     currentUrlRef.current = newUrl;
 
     // Reset state cleanly for the new video
+    sourceTypeRef.current = 'local';
     setErrorMessage(null);
+    setStatusNotice(null);
     setVideoUrl(newUrl);
     setMetadata(null);
     frameMapRef.current = [];
@@ -594,6 +724,284 @@ export default function App() {
       );
     }
   }, [handleSelectFile]);
+
+  // Load YouTube Video URL + Read-Only Description Chapter List
+  const handleLoadYouTubeUrl = useCallback(
+    async (url: string, autoImportChapters: boolean) => {
+      setErrorMessage(null);
+      setYouTubeModalError(null);
+      setIsYouTubeLoading(true);
+
+      try {
+        const videoId = extractYouTubeVideoId(url);
+        if (!videoId) {
+          throw new Error(
+            '有効なYouTubeのURLまたは動画IDを入力してください（例: https://www.youtube.com/watch?v=...）。'
+          );
+        }
+
+        let payload: YouTubeVideoInfoResponse | null = null;
+        try {
+          const resp = await fetch(`/api/youtube/info?url=${encodeURIComponent(url)}`);
+          const contentType = resp.headers.get('content-type') || '';
+          if (contentType.toLowerCase().includes('application/json')) {
+            const json = (await resp.json()) as YouTubeVideoInfoResponse & { error?: string };
+            if (!resp.ok || !json.videoId) {
+              throw new Error(json.error || 'YouTube動画情報の取得に失敗しました。');
+            }
+            payload = json;
+          }
+        } catch (fetchErr) {
+          // Re-throw explicit API errors returned by our backend; fall back on static hosts (404/network)
+          if (
+            fetchErr instanceof Error &&
+            fetchErr.name !== 'TypeError' &&
+            fetchErr.name !== 'SyntaxError'
+          ) {
+            throw fetchErr;
+          }
+        }
+
+        if (!payload) {
+          payload = {
+            videoId,
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            title: `YouTube (${videoId})`,
+            author: '',
+            durationSec: 0,
+            width: 1920,
+            height: 1080,
+            fps: 30,
+            videoCodec: 'YouTube Stream',
+            audioCodec: 'AAC / Opus',
+            description: '',
+            chapters: [],
+            chapterSource: 'none',
+            warning:
+              '静的サイト環境（GitHub Pages等）のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入出力」→「入力（タイプB）」から取り込めます。',
+          };
+        }
+
+        // Abort any previous local file analysis
+        analysisAbortRef.current?.abort();
+        const controller = new AbortController();
+        analysisAbortRef.current = controller;
+
+        if (currentUrlRef.current) {
+          URL.revokeObjectURL(currentUrlRef.current);
+          currentUrlRef.current = null;
+        }
+
+        sourceTypeRef.current = 'youtube';
+        setVideoUrl(null);
+        setInternalScenes([]);
+        setCurrentFrameIndex(0);
+        setCurrentTimeSec(0);
+        setPlaybackMode('paused');
+        playbackModeRef.current = 'paused';
+
+        const fps = payload.fps > 0 && payload.fps <= 120 ? payload.fps : 30;
+        const maxChapterSec = payload.chapters.reduce((acc, ch) => Math.max(acc, ch.timeSec), 0);
+        const durationSec = Math.max(
+          1,
+          payload.durationSec > 0 ? payload.durationSec : maxChapterSec > 0 ? maxChapterSec + 60 : 1
+        );
+        const estimatedTotalFrames = Math.max(1, Math.round(durationSec * fps));
+
+        const ytMetadata: VideoMetadata = {
+          sourceType: 'youtube',
+          fileName: payload.title,
+          fileSize: 0,
+          mimeType: 'video/youtube',
+          containerFormat: 'YouTube',
+          videoCodec: payload.videoCodec || 'YouTube Stream',
+          width: payload.width || 1920,
+          height: payload.height || 1080,
+          durationSec,
+          averageFps: fps,
+          minFps: fps,
+          maxFps: fps,
+          isVfr: false,
+          estimatedTotalFrames,
+          audioTracks: [{ index: 1, codec: payload.audioCodec || 'AAC / Opus' }],
+          parseMethod: 'youtube-stream',
+          youtubeVideoId: payload.videoId,
+          youtubeUrl: payload.url,
+          youtubeAuthor: payload.author,
+          youtubeDescription: payload.description,
+          youtubeChapterSource: payload.chapterSource,
+        };
+
+        setMetadata(ytMetadata);
+        setProgress({
+          ...INITIAL_PROGRESS,
+          frameIndexPercent: 0,
+          analyzedMaxTimeSec: 0,
+          analyzedFrameCount: 0,
+          sceneDetectDone: true,
+          sceneDetectPercent: 100,
+          sceneDetectStatus: 'done',
+        });
+
+        const frames = await buildUniformFrameMap(
+          durationSec,
+          fps,
+          (framesSnapshot, pct, maxTimeSec) => {
+            if (controller.signal.aborted) return;
+            frameMapRef.current = framesSnapshot;
+            analyzedMaxTimeRef.current = maxTimeSec;
+            setProgress((prev) => ({
+              ...prev,
+              frameIndexPercent: pct,
+              analyzedMaxTimeSec: maxTimeSec,
+              analyzedFrameCount: framesSnapshot.length,
+            }));
+          },
+          controller.signal
+        );
+
+        if (controller.signal.aborted) return;
+
+        frameMapRef.current = frames;
+        analyzedMaxTimeRef.current = durationSec;
+        setProgress((prev) => ({
+          ...prev,
+          frameIndexPercent: 100,
+          frameIndexDone: true,
+          analyzedMaxTimeSec: durationSec,
+          analyzedFrameCount: frames.length,
+        }));
+
+        // Populate markers & titles from YouTube description chapter list when enabled
+        const loadedMarkers: Marker[] = [];
+        const loadedTitles: ChapterTitle[] = [];
+        if (autoImportChapters && payload.chapters.length > 0) {
+          for (const ch of payload.chapters) {
+            const clampedSec = Math.max(0, Math.min(durationSec, ch.timeSec));
+            const idx = findFrameIndexByTime(frames, clampedSec);
+            const entry = frames[idx];
+            const mk: Marker = {
+              id: createId('mk'),
+              frameIndex: entry ? entry.frameIndex : idx,
+              timeSec: entry ? entry.timeSec : clampedSec,
+            };
+            loadedMarkers.push(mk);
+            if (ch.title.trim().length > 0) {
+              loadedTitles.push({
+                id: createId('ch'),
+                text: ch.title.trim(),
+                assignedMarkerId: mk.id,
+                unassignedOrder: 0,
+              });
+            }
+          }
+        }
+
+        setMarkers(loadedMarkers);
+        setTitles(loadedTitles);
+        setRightTab('chapters');
+        setIsYouTubeModalOpen(false);
+        setAppMode('edit');
+
+        if (payload.warning) {
+          setStatusNotice(payload.warning);
+        } else if (autoImportChapters && loadedMarkers.length > 0) {
+          const sourceLabel =
+            payload.chapterSource === 'description' ? '概要欄' : 'YouTubeチャプター';
+          setStatusNotice(`${sourceLabel}から ${loadedMarkers.length} 件のチャプターを読み込みました。`);
+        } else if (autoImportChapters) {
+          setStatusNotice('YouTube動画を読み込みました（概要欄にタイムスタンプ形式のチャプターは見つかりませんでした）。');
+        } else {
+          setStatusNotice('YouTube動画を読み込みました。');
+        }
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : 'YouTube動画の読み込みに失敗しました。';
+        setErrorMessage(msg);
+        setYouTubeModalError(msg);
+      } finally {
+        setIsYouTubeLoading(false);
+      }
+    },
+    []
+  );
+
+  // Sync exact YouTube duration & title/author from IFrame Player and re-snap markers cleanly
+  const handleYouTubePlayerReady = useCallback(
+    async (playerDurationSec: number, info?: { title?: string; author?: string }) => {
+      if (sourceTypeRef.current !== 'youtube') return;
+
+      const trimmedTitle = info?.title?.trim();
+      const trimmedAuthor = info?.author?.trim();
+      if (trimmedTitle || trimmedAuthor) {
+        setMetadata((prev) => {
+          if (!prev || prev.sourceType !== 'youtube') return prev;
+          const shouldReplaceTitle =
+            Boolean(trimmedTitle) &&
+            (!prev.fileName || prev.fileName.startsWith('YouTube ('));
+          return {
+            ...prev,
+            fileName: shouldReplaceTitle && trimmedTitle ? trimmedTitle : prev.fileName,
+            youtubeAuthor: prev.youtubeAuthor || trimmedAuthor || prev.youtubeAuthor,
+          };
+        });
+      }
+
+      if (!Number.isFinite(playerDurationSec) || playerDurationSec <= 0) return;
+
+      const currentDuration = metadata?.durationSec ?? 0;
+      if (Math.abs(currentDuration - playerDurationSec) > 1.0 || frameMapRef.current.length <= 60) {
+        const fps = metadata?.averageFps || 30;
+        const controller = new AbortController();
+        const frames = await buildUniformFrameMap(
+          playerDurationSec,
+          fps,
+          () => {},
+          controller.signal
+        );
+        frameMapRef.current = frames;
+        analyzedMaxTimeRef.current = playerDurationSec;
+        setMetadata((prev) =>
+          prev
+            ? {
+                ...prev,
+                durationSec: playerDurationSec,
+                estimatedTotalFrames: frames.length,
+              }
+            : prev
+        );
+        setProgress((prev) => ({
+          ...prev,
+          frameIndexPercent: 100,
+          frameIndexDone: true,
+          analyzedMaxTimeSec: playerDurationSec,
+          analyzedFrameCount: frames.length,
+        }));
+        setMarkers((prev) =>
+          prev.map((m) => {
+            const clampedSec = Math.max(0, Math.min(playerDurationSec, m.timeSec));
+            const idx = findFrameIndexByTime(frames, clampedSec);
+            const entry = frames[idx];
+            return entry
+              ? { ...m, frameIndex: entry.frameIndex, timeSec: entry.timeSec }
+              : m;
+          })
+        );
+      }
+    },
+    [metadata?.averageFps, metadata?.durationSec]
+  );
+
+  const handleYouTubePlaybackStateChange = useCallback((state: 'playing' | 'paused' | 'ended') => {
+    if (playbackModeRef.current === 'reverse') return;
+    if (state === 'playing') {
+      playbackModeRef.current = 'forward';
+      setPlaybackMode('forward');
+    } else {
+      playbackModeRef.current = 'paused';
+      setPlaybackMode('paused');
+    }
+  }, []);
 
   // --- Marker & Chapter Title Operations ---
   const sortedMarkers = useMemo(
@@ -894,6 +1302,18 @@ export default function App() {
     [markers, metadata?.durationSec, titles]
   );
 
+  const handleReimportFromYouTubeDescription = useCallback(
+    (replaceExisting: boolean) => {
+      const desc = metadata?.youtubeDescription;
+      if (!desc) return;
+      const chapters = parseChaptersFromDescription(desc, metadata?.durationSec || undefined);
+      if (chapters.length === 0) return;
+      handleImportTypeB(chapters, replaceExisting);
+      setStatusNotice(`概要欄から ${chapters.length} 件のチャプターを再読み込みしました。`);
+    },
+    [handleImportTypeB, metadata?.durationSec, metadata?.youtubeDescription]
+  );
+
   // --- Separate Axis Jump Navigation ---
   const jumpPrevMarker = useCallback(() => {
     if (sortedMarkers.length === 0) return;
@@ -934,10 +1354,11 @@ export default function App() {
     if (appMode !== 'edit') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isImportExportOpen || isShortcutHelpOpen) {
+      if (isImportExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
         if (e.key === 'Escape') {
           setIsImportExportOpen(false);
           setIsShortcutHelpOpen(false);
+          setIsYouTubeModalOpen(false);
         }
         return;
       }
@@ -1014,6 +1435,7 @@ export default function App() {
     appMode,
     isImportExportOpen,
     isShortcutHelpOpen,
+    isYouTubeModalOpen,
     jumpNextMarker,
     jumpNextScene,
     jumpPrevMarker,
@@ -1048,7 +1470,7 @@ export default function App() {
           }}
           className="text-base font-bold tracking-tight text-[#F8FAFC] whitespace-nowrap shrink-0 cursor-pointer"
         >
-          Video Chapter Marker
+          YouTube Video Chapter Marker
         </button>
 
         {/* Zone 2: Clean Single-Line Text Navigation Actions */}
@@ -1062,6 +1484,18 @@ export default function App() {
               >
                 <FolderOpen className="w-3.5 h-3.5" />
                 別の動画を開く
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setYouTubeModalError(null);
+                  setYouTubeModalInitialTab('load');
+                  setIsYouTubeModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Youtube className="w-3.5 h-3.5" />
+                YouTube読込
               </button>
               <button
                 type="button"
@@ -1130,6 +1564,8 @@ export default function App() {
           <LoadingView
             mode={appMode}
             onSelectFile={handleSelectFile}
+            onLoadYouTubeUrl={handleLoadYouTubeUrl}
+            isYouTubeLoading={isYouTubeLoading}
             onGenerateSample={handleGenerateSample}
             sampleGenProgress={sampleGenProgress}
             errorMessage={errorMessage}
@@ -1141,7 +1577,21 @@ export default function App() {
       ) : (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Metadata & Background Analysis Progress Bar */}
-          {metadata && <MetadataBar metadata={metadata} progress={progress} />}
+          {metadata && (
+            <MetadataBar
+              metadata={metadata}
+              progress={progress}
+              onInspectYouTubeDescription={
+                metadata.sourceType === 'youtube'
+                  ? () => {
+                      setYouTubeModalError(null);
+                      setYouTubeModalInitialTab('description');
+                      setIsYouTubeModalOpen(true);
+                    }
+                  : undefined
+              }
+            />
+          )}
 
           {/* Main 2-Column Studio Edit Workspace */}
           <main
@@ -1152,39 +1602,56 @@ export default function App() {
           >
             {/* Left Primary Monitor + Huge Timecode + Transport Column */}
             <div className="flex-1 flex flex-col gap-3 p-4 min-w-0 lg:overflow-y-auto">
-              {/* Video Reference Monitor */}
-              <div className="relative bg-black rounded-lg border border-[#242933] overflow-hidden flex items-center justify-center min-h-[240px] max-h-[50vh] xl:max-h-[54vh] aspect-video mx-auto w-full">
-                {videoUrl && (
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    muted={isMuted}
-                    playsInline
-                    preload="auto"
-                    onClick={togglePlayPause}
-                    onLoadedData={() => {
-                      const v = videoRef.current;
-                      if (v && currentTimeSec > 0) {
-                        v.currentTime = currentTimeSec;
-                      }
-                    }}
-                    className="w-full h-full object-contain cursor-pointer"
+              {/* Video Reference Monitor (Local Video or YouTube IFrame Player) */}
+              <div
+                className={`relative bg-black rounded-lg border border-[#242933] overflow-hidden flex items-center justify-center min-h-[240px] max-h-[50vh] xl:max-h-[54vh] aspect-video mx-auto w-full ${
+                  isResizingSidebar ? 'pointer-events-none' : ''
+                }`}
+              >
+                {metadata?.sourceType === 'youtube' && metadata.youtubeVideoId ? (
+                  <YouTubePlayerView
+                    key={metadata.youtubeVideoId}
+                    videoId={metadata.youtubeVideoId}
+                    isMuted={isMuted}
+                    controllerRef={youtubeControllerRef}
+                    onReady={handleYouTubePlayerReady}
+                    onPlaybackStateChange={handleYouTubePlaybackStateChange}
                   />
-                )}
+                ) : (
+                  <>
+                    {videoUrl && (
+                      <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        muted={isMuted}
+                        playsInline
+                        preload="auto"
+                        onClick={togglePlayPause}
+                        onLoadedData={() => {
+                          const v = videoRef.current;
+                          if (v && currentTimeSec > 0) {
+                            v.currentTime = currentTimeSec;
+                          }
+                        }}
+                        className="w-full h-full object-contain cursor-pointer"
+                      />
+                    )}
 
-                {/* Minimal mute control inside monitor corner */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextMuted = !isMuted;
-                    setIsMuted(nextMuted);
-                    if (videoRef.current) videoRef.current.muted = nextMuted;
-                  }}
-                  title={isMuted ? 'ミュート解除' : 'ミュート'}
-                  className="absolute bottom-3 right-3 p-2 rounded-md bg-black/65 hover:bg-black/85 text-[#E2E8F0] border border-white/10 transition-colors cursor-pointer"
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                </button>
+                    {/* Minimal mute control inside local monitor corner */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextMuted = !isMuted;
+                        setIsMuted(nextMuted);
+                        if (videoRef.current) videoRef.current.muted = nextMuted;
+                      }}
+                      title={isMuted ? 'ミュート解除' : 'ミュート'}
+                      className="absolute bottom-3 right-3 p-2 rounded-md bg-black/65 hover:bg-black/85 text-[#E2E8F0] border border-white/10 transition-colors cursor-pointer"
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* HERO: Prominent Large Timecode / Frame Number / Seconds Readout */}
@@ -1285,6 +1752,21 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Optional dismissible YouTube chapter import notice */}
+              {statusNotice && (
+                <div className="px-3.5 py-2 border-b border-[#222731] bg-amber-500/10 flex items-center justify-between gap-2 text-xs text-amber-200 shrink-0">
+                  <span className="leading-snug">{statusNotice}</span>
+                  <button
+                    type="button"
+                    onClick={() => setStatusNotice(null)}
+                    aria-label="通知を閉じる"
+                    className="p-0.5 text-amber-300/80 hover:text-amber-100 shrink-0 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               <div className="flex-1 min-h-0 flex flex-col">
                 {rightTab === 'chapters' ? (
                   <ChapterTimelinePanel
@@ -1307,6 +1789,7 @@ export default function App() {
                   />
                 ) : (
                   <InternalScenePanel
+                    sourceType={metadata?.sourceType ?? 'local'}
                     scenes={internalScenes}
                     progress={progress}
                     currentFrameIndex={currentFrameIndex}
@@ -1332,6 +1815,21 @@ export default function App() {
         onClose={() => setIsImportExportOpen(false)}
         onImportTypeA={handleImportTypeA}
         onImportTypeB={handleImportTypeB}
+      />
+
+      {/* YouTube URL Loader & Read-Only Description Viewer Popup */}
+      <YouTubeUrlModal
+        key={`${isYouTubeModalOpen}-${youTubeModalInitialTab}-${metadata?.youtubeVideoId ?? ''}`}
+        isOpen={isYouTubeModalOpen}
+        initialTab={youTubeModalInitialTab}
+        isLoading={isYouTubeLoading}
+        errorMessage={youTubeModalError}
+        currentYouTubeUrl={metadata?.youtubeUrl}
+        currentTitle={metadata?.fileName}
+        currentDescription={metadata?.youtubeDescription}
+        onClose={() => setIsYouTubeModalOpen(false)}
+        onSubmitUrl={handleLoadYouTubeUrl}
+        onReimportFromDescription={handleReimportFromYouTubeDescription}
       />
 
       {/* Keyboard Shortcuts Reference Popup */}

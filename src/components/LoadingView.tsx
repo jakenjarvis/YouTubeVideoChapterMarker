@@ -1,11 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Download } from 'lucide-react';
 import type { AnalysisProgress, AppMode, VideoMetadata } from '../types/video';
 import { formatFileSize, formatTimecodeHMS } from '../utils/timecode';
+import { extractYouTubeVideoId } from '../utils/youtube';
 
 interface LoadingViewProps {
   mode: Extract<AppMode, 'select' | 'loading'>;
   onSelectFile: (file: File) => void;
+  onLoadYouTubeUrl: (url: string, autoImportChapters: boolean) => void;
+  isYouTubeLoading: boolean;
   onGenerateSample: () => void;
   sampleGenProgress: number | null;
   errorMessage: string | null;
@@ -17,6 +20,8 @@ interface LoadingViewProps {
 export const LoadingView: React.FC<LoadingViewProps> = ({
   mode,
   onSelectFile,
+  onLoadYouTubeUrl,
+  isYouTubeLoading,
   onGenerateSample,
   sampleGenProgress,
   errorMessage,
@@ -26,6 +31,9 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [youtubeUrlInput, setYoutubeUrlInput] = useState('');
+  const [autoImportChapters, setAutoImportChapters] = useState(true);
+  const detectedYouTubeId = extractYouTubeVideoId(youtubeUrlInput);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -157,13 +165,13 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
         {/* Clean Editorial Studio Intro */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight text-balance">
-            ローカル動画から、フレーム精度でYouTubeチャプターを作成
+            ローカル動画・YouTube動画から、精密にチャプターを作成・編集
           </h1>
           <p className="mt-2.5 text-sm sm:text-base text-[#94A0B2] max-w-2xl leading-relaxed">
-            PC内の動画ファイルをそのまま読み込み、可変フレームレート対応のフレーム対応リストとシーン変化点を自動解析。
-            タイムラインへのマーキングとチャプタータイトルの割り当てから、YouTube概要欄形式（
+            PC内の動画ファイルまたはYouTubeのURLを読み込み、フレーム対応リストを基準にシーク・マーキング。
+            YouTube動画の概要欄にある既存チャプターの取り込みと、YouTube概要欄形式（
             <span className="font-mono-tabular text-[#E2E8F0]">00:00:00 タイトル</span>
-            ）のテキストを素早く生成します。
+            ）の生成に対応しています。
           </p>
         </div>
 
@@ -219,6 +227,72 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Step 1B: YouTube URL Loader (Read-only playback + description chapter import) */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!detectedYouTubeId || isYouTubeLoading) return;
+            onLoadYouTubeUrl(youtubeUrlInput.trim(), autoImportChapters);
+          }}
+          className="mt-5 rounded-xl border border-[#262B34] bg-[#14171C] p-6"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Youtube className="w-4 h-4 text-amber-400 shrink-0" />
+              <h2 className="text-sm font-semibold text-[#F3F5F8]">
+                YouTube URLから読み込む（読み取り専用）
+              </h2>
+            </div>
+            <span className="text-[11px] text-[#7D899B]">
+              動画の再生と概要欄のチャプターリスト取得に対応
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <input
+              type="text"
+              value={youtubeUrlInput}
+              onChange={(e) => setYoutubeUrlInput(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=... または https://youtu.be/..."
+              className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-[#0D0F12] border border-[#2C3340] focus:border-amber-400/70 rounded-md text-[#F8FAFC] placeholder:text-[#566071] focus:outline-none font-mono-tabular"
+            />
+            <button
+              type="submit"
+              disabled={!detectedYouTubeId || isYouTubeLoading}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:cursor-not-allowed"
+            >
+              {isYouTubeLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  取得中...
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  URLを読み込む
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-xs text-[#CBD5E1] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoImportChapters}
+                onChange={(e) => setAutoImportChapters(e.target.checked)}
+                className="accent-amber-400"
+              />
+              概要欄のチャプターリストをマーカー＆タイトルへ自動読み込みする
+            </label>
+            {youtubeUrlInput.trim().length > 0 && !detectedYouTubeId && (
+              <span className="text-[11px] text-amber-400">
+                有効なYouTubeのURLまたは11文字の動画IDを入力してください
+              </span>
+            )}
+          </div>
+        </form>
 
         {/* Error feedback */}
         {errorMessage && (
@@ -280,7 +354,8 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
 
         {metadata && (
           <div className="mt-3 text-xs text-[#647082] font-mono-tabular">
-            前回の読み込み: {metadata.fileName} ({formatFileSize(metadata.fileSize)})
+            前回の読み込み: {metadata.fileName}
+            {metadata.sourceType === 'local' ? ` (${formatFileSize(metadata.fileSize)})` : ' (YouTube)'}
           </div>
         )}
       </div>

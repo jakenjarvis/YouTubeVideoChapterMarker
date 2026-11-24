@@ -11,6 +11,7 @@ export interface AudioTrackInfo {
 }
 
 export interface VideoMetadata {
+  sourceType: 'local' | 'youtube';
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -25,7 +26,12 @@ export interface VideoMetadata {
   isVfr: boolean;
   estimatedTotalFrames: number;
   audioTracks: AudioTrackInfo[];
-  parseMethod: 'mp4-stts' | 'webm-ebml' | 'browser-fallback';
+  parseMethod: 'mp4-stts' | 'webm-ebml' | 'browser-fallback' | 'youtube-stream';
+  youtubeVideoId?: string;
+  youtubeUrl?: string;
+  youtubeAuthor?: string;
+  youtubeDescription?: string;
+  youtubeChapterSource?: 'description' | 'youtube-chapters' | 'none';
 }
 
 export interface FrameMapEntry {
