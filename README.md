@@ -2,6 +2,8 @@
 
 ローカル動画ファイルまたは YouTube 動画の URL から、YouTube 概要欄用のチャプターテキスト（`00:00:00 {ChapterName}` 形式）を効率よく作成・編集するための Web ツールです。
 
+**▶ アプリを開く：** [https://youtube-video-chapter-marker.vercel.app/](https://youtube-video-chapter-marker.vercel.app/)
+
 > **開発背景・免責事項（必ずお読みください）**
 > - 本アプリケーションは **Google AI Studio の Build 機能** を用いた **ヴァイブコーディング（Vibe Coding）** によって作成されています。
 > - 作者による網羅的なソースコードレビュー・動作検証は行っておりません。
