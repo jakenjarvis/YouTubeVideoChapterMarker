@@ -36,6 +36,8 @@ import {
 import {
   extractYouTubeVideoId,
   parseChaptersFromDescription,
+  type YouTubeApiErrorCode,
+  type YouTubeApiWarningCode,
   type YouTubeVideoInfoResponse,
 } from './utils/youtube';
 import { LoadingView } from './components/LoadingView';
@@ -51,6 +53,40 @@ import {
   type YouTubePlayerController,
 } from './components/YouTubePlayerView';
 import { YouTubeUrlModal } from './components/YouTubeUrlModal';
+import { LanguageSelector } from './components/LanguageSelector';
+import { getActiveLocale, translate, translatePlural, useI18n } from './i18n';
+
+function translateYouTubeApiError(code?: YouTubeApiErrorCode, fallback?: string): string {
+  switch (code) {
+    case 'INVALID_YOUTUBE_URL':
+      return translate('errors.invalidYouTubeUrl');
+    case 'YOUTUBE_VIDEO_NOT_FOUND':
+      return translate('errors.youtubeVideoNotFound');
+    case 'YOUTUBE_LOAD_FAILED':
+      return translate('errors.youtubeLoadGenericError');
+    default:
+      return fallback || translate('errors.youtubeInfoFetchFailed');
+  }
+}
+
+function translateYouTubeApiWarning(
+  code?: YouTubeApiWarningCode,
+  detail?: string,
+  fallback?: string
+): string | null {
+  switch (code) {
+    case 'YOUTUBE_RESTRICTED_WITH_REASON':
+      return translate('notices.youtubeRestrictedWithReason', { reason: detail ?? '' });
+    case 'YOUTUBE_RESTRICTED_PRIVATE':
+      return translate('notices.youtubeRestrictedPrivate');
+    case 'YOUTUBE_DESCRIPTION_FETCH_FAILED':
+      return translate('notices.youtubeDescriptionFetchFailed');
+    case 'STATIC_SITE_YOUTUBE_FALLBACK':
+      return translate('errors.staticSiteYouTubeWarning');
+    default:
+      return fallback ?? null;
+  }
+}
 
 const INITIAL_PROGRESS: AnalysisProgress = {
   frameIndexPercent: 0,
@@ -87,6 +123,7 @@ function readInitialSidebarWidth(): number {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const [appMode, setAppMode] = useState<AppMode>('select');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
@@ -180,9 +217,11 @@ export default function App() {
       const container = workspaceRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
+      const isRtl = document.documentElement.dir === 'rtl';
       const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, rect.width - MIN_LEFT_PANEL_WIDTH);
+      const rawWidth = isRtl ? moveEvent.clientX - rect.left : rect.right - moveEvent.clientX;
       const nextWidth = Math.round(
-        Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, rect.right - moveEvent.clientX))
+        Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, rawWidth))
       );
       latestWidth = nextWidth;
       setRightPanelWidth(nextWidth);
@@ -225,7 +264,9 @@ export default function App() {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
     const step = e.shiftKey ? 48 : 16;
-    const delta = e.key === 'ArrowLeft' ? step : -step;
+    const isRtl = document.documentElement.dir === 'rtl';
+    const delta =
+      e.key === 'ArrowLeft' ? (isRtl ? -step : step) : isRtl ? step : -step;
     const container = workspaceRef.current;
     const maxWidth = container
       ? Math.max(MIN_SIDEBAR_WIDTH, container.getBoundingClientRect().width - MIN_LEFT_PANEL_WIDTH)
@@ -708,7 +749,7 @@ export default function App() {
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : '動画ファイルの解析に失敗しました。別のファイルでお試しください。'
+          : translate('errors.videoAnalysisFailed')
       );
       setAppMode('select');
     });
@@ -724,7 +765,7 @@ export default function App() {
     } catch (err) {
       setSampleGenProgress(null);
       setErrorMessage(
-        err instanceof Error ? err.message : 'サンプル動画の生成に失敗しました。'
+        err instanceof Error ? err.message : translate('errors.sampleGenFailed')
       );
     }
   }, [handleSelectFile]);
@@ -739,19 +780,23 @@ export default function App() {
       try {
         const videoId = extractYouTubeVideoId(url);
         if (!videoId) {
-          throw new Error(
-            '有効なYouTubeのURLまたは動画IDを入力してください（例: https://www.youtube.com/watch?v=...）。'
-          );
+          throw new Error(translate('errors.invalidYouTubeUrl'));
         }
 
         let payload: YouTubeVideoInfoResponse | null = null;
         try {
-          const resp = await fetch(`/api/youtube/info?url=${encodeURIComponent(url)}`);
+          const hl = getActiveLocale();
+          const resp = await fetch(
+            `/api/youtube/info?url=${encodeURIComponent(url)}&hl=${encodeURIComponent(hl)}`
+          );
           const contentType = resp.headers.get('content-type') || '';
           if (contentType.toLowerCase().includes('application/json')) {
-            const json = (await resp.json()) as YouTubeVideoInfoResponse & { error?: string };
+            const json = (await resp.json()) as YouTubeVideoInfoResponse & {
+              error?: string;
+              errorCode?: YouTubeApiErrorCode;
+            };
             if (!resp.ok || !json.videoId) {
-              throw new Error(json.error || 'YouTube動画情報の取得に失敗しました。');
+              throw new Error(translateYouTubeApiError(json.errorCode, json.error));
             }
             payload = json;
           }
@@ -770,19 +815,20 @@ export default function App() {
           payload = {
             videoId,
             url: `https://www.youtube.com/watch?v=${videoId}`,
-            title: `YouTube (${videoId})`,
+            title: translate('metadata.youtubeFallbackTitle', { videoId }),
             author: '',
             durationSec: 0,
             width: 1920,
             height: 1080,
             fps: 30,
-            videoCodec: 'YouTube Stream',
+            videoCodec: translate('metadata.youtubeStream'),
             audioCodec: 'AAC / Opus',
             description: '',
             chapters: [],
             chapterSource: 'none',
-            warning:
-              '静的サイト環境のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入出力」→「入力（タイプB）」から取り込めます。',
+            warningCode: 'STATIC_SITE_YOUTUBE_FALLBACK',
+            warning: translate('errors.staticSiteYouTubeWarning'),
+            isFallbackTitle: true,
           };
         }
 
@@ -812,13 +858,22 @@ export default function App() {
         );
         const estimatedTotalFrames = Math.max(1, Math.round(durationSec * fps));
 
+        const resolvedTitle = payload.isFallbackTitle
+          ? payload.warningCode === 'STATIC_SITE_YOUTUBE_FALLBACK'
+            ? translate('metadata.youtubeFallbackTitle', { videoId: payload.videoId })
+            : translate('metadata.youtubeVideoFallbackTitle', { videoId: payload.videoId })
+          : payload.title;
+
         const ytMetadata: VideoMetadata = {
           sourceType: 'youtube',
-          fileName: payload.title,
+          fileName: resolvedTitle,
           fileSize: 0,
           mimeType: 'video/youtube',
-          containerFormat: 'YouTube',
-          videoCodec: payload.videoCodec || 'YouTube Stream',
+          containerFormat: translate('metadata.youtubeSourceTag'),
+          videoCodec:
+            !payload.videoCodec || payload.videoCodec === 'YouTube Stream'
+              ? translate('metadata.youtubeStream')
+              : payload.videoCodec,
           width: payload.width || 1920,
           height: payload.height || 1080,
           durationSec,
@@ -834,6 +889,7 @@ export default function App() {
           youtubeAuthor: payload.author,
           youtubeDescription: payload.description,
           youtubeChapterSource: payload.chapterSource,
+          youtubeTitleIsFallback: Boolean(payload.isFallbackTitle),
         };
 
         setMetadata(ytMetadata);
@@ -909,20 +965,32 @@ export default function App() {
         setIsYouTubeModalOpen(false);
         setAppMode('edit');
 
-        if (payload.warning) {
-          setStatusNotice(payload.warning);
+        const localizedWarning = translateYouTubeApiWarning(
+          payload.warningCode,
+          payload.warningDetail,
+          payload.warning
+        );
+        if (localizedWarning) {
+          setStatusNotice(localizedWarning);
         } else if (autoImportChapters && loadedMarkers.length > 0) {
           const sourceLabel =
-            payload.chapterSource === 'description' ? '概要欄' : 'YouTubeチャプター';
-          setStatusNotice(`${sourceLabel}から ${loadedMarkers.length} 件のチャプターを読み込みました。`);
+            payload.chapterSource === 'description'
+              ? translate('notices.chapterSourceDescription')
+              : translate('notices.chapterSourceYouTube');
+          setStatusNotice(
+            translatePlural('notices.youtubeChaptersLoaded', loadedMarkers.length, {
+              source: sourceLabel,
+              count: loadedMarkers.length,
+            })
+          );
         } else if (autoImportChapters) {
-          setStatusNotice('YouTube動画を読み込みました（概要欄にタイムスタンプ形式のチャプターは見つかりませんでした）。');
+          setStatusNotice(translate('notices.youtubeLoadedNoChapters'));
         } else {
-          setStatusNotice('YouTube動画を読み込みました。');
+          setStatusNotice(translate('notices.youtubeLoaded'));
         }
       } catch (err) {
         const msg =
-          err instanceof Error ? err.message : 'YouTube動画の読み込みに失敗しました。';
+          err instanceof Error ? err.message : translate('errors.youtubeLoadFailed');
         setErrorMessage(msg);
         setYouTubeModalError(msg);
       } finally {
@@ -944,10 +1012,11 @@ export default function App() {
           if (!prev || prev.sourceType !== 'youtube') return prev;
           const shouldReplaceTitle =
             Boolean(trimmedTitle) &&
-            (!prev.fileName || prev.fileName.startsWith('YouTube ('));
+            (!prev.fileName || Boolean(prev.youtubeTitleIsFallback));
           return {
             ...prev,
             fileName: shouldReplaceTitle && trimmedTitle ? trimmedTitle : prev.fileName,
+            youtubeTitleIsFallback: shouldReplaceTitle ? false : prev.youtubeTitleIsFallback,
             youtubeAuthor: prev.youtubeAuthor || trimmedAuthor || prev.youtubeAuthor,
           };
         });
@@ -1326,7 +1395,9 @@ export default function App() {
       const chapters = parseChaptersFromDescription(desc, metadata?.durationSec || undefined);
       if (chapters.length === 0) return;
       handleImportTypeB(chapters, replaceExisting);
-      setStatusNotice(`概要欄から ${chapters.length} 件のチャプターを再読み込みしました。`);
+      setStatusNotice(
+        translatePlural('notices.youtubeChaptersReimported', chapters.length)
+      );
     },
     [handleImportTypeB, metadata?.durationSec, metadata?.youtubeDescription]
   );
@@ -1389,6 +1460,9 @@ export default function App() {
     if (appMode !== 'edit') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Never intercept keys while an IME (Japanese, Chinese, Korean, Vietnamese, etc.) is composing
+      if (e.isComposing || e.keyCode === 229) return;
+
       if (isImportExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
         if (e.key === 'Escape') {
           setIsImportExportOpen(false);
@@ -1409,54 +1483,67 @@ export default function App() {
         return;
       }
 
+      if (e.altKey) return;
+
       const key = e.key;
       const lower = key.toLowerCase();
+      const code = e.code;
+      const hasPrimaryMod = e.ctrlKey || e.metaKey;
 
-      if (key === ' ' || lower === 'k') {
+      if (key === 'ArrowLeft') {
         e.preventDefault();
-        togglePlayPause();
-      } else if (lower === 'l') {
-        e.preventDefault();
-        playForward();
-      } else if (lower === 'j') {
-        e.preventDefault();
-        playReverse();
-      } else if (key === 'ArrowLeft') {
-        e.preventDefault();
-        if (e.ctrlKey || e.metaKey) stepFrames(-30);
+        if (hasPrimaryMod) stepFrames(-30);
         else if (e.shiftKey) stepFrames(-10);
         else stepFrames(-1);
-      } else if (key === 'ArrowRight') {
+        return;
+      }
+      if (key === 'ArrowRight') {
         e.preventDefault();
-        if (e.ctrlKey || e.metaKey) stepFrames(30);
+        if (hasPrimaryMod) stepFrames(30);
         else if (e.shiftKey) stepFrames(10);
         else stepFrames(1);
-      } else if (key === ',') {
+        return;
+      }
+
+      // Do not hijack browser shortcuts (Ctrl/Cmd + C, R, M, N, P, etc.)
+      if (hasPrimaryMod) return;
+
+      // Support both logical key and physical e.code so non-Latin keyboard layouts (IME, Arabic, Cyrillic, Greek) work ergonomics-first
+      if (key === ' ' || code === 'Space' || lower === 'k' || code === 'KeyK') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (lower === 'l' || code === 'KeyL') {
+        e.preventDefault();
+        playForward();
+      } else if (lower === 'j' || code === 'KeyJ') {
+        e.preventDefault();
+        playReverse();
+      } else if (key === ',' || code === 'Comma') {
         e.preventDefault();
         stepFrames(-1);
-      } else if (key === '.') {
+      } else if (key === '.' || code === 'Period') {
         e.preventDefault();
         stepFrames(1);
-      } else if (lower === 'a') {
+      } else if (lower === 'a' || code === 'KeyA') {
         e.preventDefault();
         stepSeconds(e.shiftKey ? -10 : -1);
-      } else if (lower === 'd') {
+      } else if (lower === 'd' || code === 'KeyD') {
         e.preventDefault();
         stepSeconds(e.shiftKey ? 10 : 1);
-      } else if (key === '[') {
+      } else if (key === '[' || code === 'BracketLeft') {
         e.preventDefault();
         stepSeconds(-15);
-      } else if (key === ']') {
+      } else if (key === ']' || code === 'BracketRight') {
         e.preventDefault();
         stepSeconds(15);
-      } else if (lower === 'm') {
+      } else if (lower === 'm' || code === 'KeyM') {
         e.preventDefault();
         addMarkerAtCurrent();
-      } else if (lower === 'p') {
+      } else if (lower === 'p' || code === 'KeyP') {
         e.preventDefault();
         if (e.shiftKey) jumpPrevScene();
         else jumpPrevMarker();
-      } else if (lower === 'n') {
+      } else if (lower === 'n' || code === 'KeyN') {
         e.preventDefault();
         if (e.shiftKey) jumpNextScene();
         else jumpNextMarker();
@@ -1495,7 +1582,7 @@ export default function App() {
   return (
     <div className="min-h-screen h-screen flex flex-col bg-[#0D0F12] text-[#F3F5F8] overflow-hidden">
       {/* Strict 3-Zone Top Bar Contract */}
-      <header className="h-14 shrink-0 flex items-center justify-between gap-8 px-5 border-b border-[#222731] bg-[#111419]">
+      <header className="h-14 shrink-0 flex items-center justify-between gap-4 xl:gap-8 px-5 border-b border-[#222731] bg-[#111419]">
         {/* Zone 1: Single-line Brand Title */}
         <button
           type="button"
@@ -1505,14 +1592,14 @@ export default function App() {
           }}
           className="inline-flex items-baseline gap-2 text-base font-bold tracking-tight text-[#F8FAFC] whitespace-nowrap shrink-0 cursor-pointer"
         >
-          <span>YouTube Video Chapter Marker</span>
-          <span className="font-mono-tabular text-xs font-medium text-[#94A0B2]">
-            Ver {__APP_VERSION__}
+          <span>{t('header.brandTitle')}</span>
+          <span dir="ltr" className="font-mono-tabular text-xs font-medium text-[#94A0B2]">
+            {t('header.versionLabel', { version: __APP_VERSION__ })}
           </span>
         </button>
 
         {/* Zone 2: Clean Single-Line Text Navigation Actions */}
-        <nav className="flex items-center gap-6 text-xs font-medium text-[#94A0B2]">
+        <nav className="flex items-center gap-4 xl:gap-6 text-xs font-medium text-[#94A0B2] min-w-0">
           {appMode === 'edit' && (
             <>
               <button
@@ -1521,7 +1608,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
-                別の動画を開く
+                {t('header.openAnotherVideo')}
               </button>
               <button
                 type="button"
@@ -1533,7 +1620,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Youtube className="w-3.5 h-3.5" />
-                YouTube読込
+                {t('header.loadYouTube')}
               </button>
               <button
                 type="button"
@@ -1543,7 +1630,7 @@ export default function App() {
                 }}
                 className="hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                タイトル読込
+                {t('header.importTitles')}
               </button>
               <button
                 type="button"
@@ -1551,14 +1638,15 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Keyboard className="w-3.5 h-3.5" />
-                ショートカット
+                {t('header.shortcuts')}
               </button>
             </>
           )}
         </nav>
 
-        {/* Zone 3: Single Primary Action */}
-        <div className="flex items-center shrink-0">
+        {/* Zone 3: Language Selector + Single Primary Action */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <LanguageSelector />
           {appMode === 'edit' ? (
             <button
               type="button"
@@ -1569,7 +1657,7 @@ export default function App() {
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" />
-              テキスト入出力
+              {t('header.importExportText')}
             </button>
           ) : (
             <button
@@ -1578,7 +1666,7 @@ export default function App() {
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              動画を開く
+              {t('header.openVideo')}
             </button>
           )}
         </div>
@@ -1683,8 +1771,8 @@ export default function App() {
                         setIsMuted(nextMuted);
                         if (videoRef.current) videoRef.current.muted = nextMuted;
                       }}
-                      title={isMuted ? 'ミュート解除' : 'ミュート'}
-                      className="absolute bottom-3 right-3 p-2 rounded-md bg-black/65 hover:bg-black/85 text-[#E2E8F0] border border-white/10 transition-colors cursor-pointer"
+                      title={isMuted ? t('workspace.unmute') : t('workspace.mute')}
+                      className="absolute bottom-3 end-3 p-2 rounded-md bg-black/65 hover:bg-black/85 text-[#E2E8F0] border border-white/10 transition-colors cursor-pointer"
                     >
                       {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                     </button>
@@ -1729,11 +1817,11 @@ export default function App() {
             <div
               role="separator"
               aria-orientation="vertical"
-              aria-label="左右パネルの境界線をドラッグして幅を調整"
+              aria-label={t('workspace.splitterAriaLabel')}
               aria-valuenow={rightPanelWidth}
               aria-valuemin={MIN_SIDEBAR_WIDTH}
               tabIndex={0}
-              title="左右にドラッグしてパネル幅を調整（ダブルクリックで初期幅にリセット）"
+              title={t('workspace.splitterTitle')}
               onPointerDown={handleSplitterPointerDown}
               onDoubleClick={handleSplitterDoubleClick}
               onKeyDown={handleSplitterKeyDown}
@@ -1766,26 +1854,30 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setRightTab('chapters')}
-                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
                       rightTab === 'chapters'
                         ? 'bg-[#202530] text-amber-300'
                         : 'text-[#94A0B2] hover:text-[#F3F5F8]'
                     }`}
                   >
-                    <Bookmark className="w-3.5 h-3.5" />
-                    マーカー＆チャプター ({sortedMarkers.length})
+                    <Bookmark className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">
+                      {t('workspace.tabMarkersChapters', { count: sortedMarkers.length })}
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setRightTab('scenes')}
-                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
                       rightTab === 'scenes'
                         ? 'bg-[#202530] text-sky-300'
                         : 'text-[#94A0B2] hover:text-[#F3F5F8]'
                     }`}
                   >
-                    <Compass className="w-3.5 h-3.5" />
-                    内部シーン参考 ({internalScenes.length})
+                    <Compass className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">
+                      {t('workspace.tabInternalScenes', { count: internalScenes.length })}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1797,7 +1889,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setStatusNotice(null)}
-                    aria-label="通知を閉じる"
+                    aria-label={t('workspace.dismissNotice')}
                     className="p-0.5 text-amber-300/80 hover:text-amber-100 shrink-0 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />

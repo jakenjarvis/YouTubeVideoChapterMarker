@@ -3,6 +3,7 @@ import { Loader2, SkipBack, SkipForward, Compass } from 'lucide-react';
 import type { AnalysisProgress, InternalScene, PlaybackMode } from '../types/video';
 import { splitTimecodeParts } from '../utils/timecode';
 import { computePlayheadSlot, TimelinePlayheadGap } from './TimelinePlayheadSlot';
+import { useI18n, type TranslationKey } from '../i18n';
 
 interface InternalScenePanelProps {
   sourceType: 'local' | 'youtube';
@@ -18,10 +19,10 @@ interface InternalScenePanelProps {
   onJumpNextScene: () => void;
 }
 
-const reasonLabelMap: Record<InternalScene['reason'], string> = {
-  visual: '映像変化',
-  audio: '音声変化',
-  both: '映像＋音声',
+const reasonKeyMap: Record<InternalScene['reason'], TranslationKey> = {
+  visual: 'scenes.reasonVisual',
+  audio: 'scenes.reasonAudio',
+  both: 'scenes.reasonBoth',
 };
 
 export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
@@ -37,6 +38,7 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
   onJumpPrevScene,
   onJumpNextScene,
 }) => {
+  const { t } = useI18n();
   const playheadSlot = computePlayheadSlot(
     scenes,
     currentFrameIndex,
@@ -51,44 +53,46 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
       <div className="px-4 py-3 border-b border-[#222731] space-y-2.5 shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs text-[#94A0B2] flex items-center gap-2 font-mono-tabular">
-            <span className="text-sky-400 font-medium">検出シーン {scenes.length}</span>
+            <span className="text-sky-400 font-medium">
+              {t('scenes.detectedCount', { count: scenes.length })}
+            </span>
             <span aria-hidden="true" className="text-[#454E5E]">·</span>
             {progress.sceneDetectStatus === 'running' ? (
               <span className="inline-flex items-center gap-1 text-sky-300">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                検出中 {progress.sceneDetectPercent}%
+                {t('scenes.detectingPercent', { percent: progress.sceneDetectPercent })}
               </span>
             ) : (
-              <span>解析 {progress.sceneDetectPercent}%</span>
+              <span>{t('scenes.analyzedPercent', { percent: progress.sceneDetectPercent })}</span>
             )}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div dir="ltr" className="flex items-center gap-1">
             <button
               type="button"
               onClick={onJumpPrevScene}
               disabled={scenes.length === 0}
-              title="前の内部シーンへ移動 (Shift+P)"
+              title={t('scenes.prevSceneTitle')}
               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 rounded disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
             >
               <SkipBack className="w-3 h-3" />
-              前シーン
+              {t('scenes.prevSceneLabel')}
             </button>
             <button
               type="button"
               onClick={onJumpNextScene}
               disabled={scenes.length === 0}
-              title="次の内部シーンへ移動 (Shift+N)"
+              title={t('scenes.nextSceneTitle')}
               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 rounded disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
             >
-              次シーン
+              {t('scenes.nextSceneLabel')}
               <SkipForward className="w-3 h-3" />
             </button>
           </div>
         </div>
 
         <p className="text-[11px] text-[#7D899B] leading-relaxed">
-          映像・音声の変化から自動抽出した参考用の別軸シークポイントです。クリックでそのフレームへ移動します（マーキングとは完全に独立しており、チャプター出力には影響しません）。
+          {t('scenes.separationNotice')}
         </p>
       </div>
 
@@ -99,15 +103,15 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
             <Compass className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
             <p className="text-sm font-medium text-[#E2E8F0]">
               {sourceType === 'youtube'
-                ? 'YouTube動画では自動シーン検出は利用できません'
+                ? t('scenes.emptyYouTubeTitle')
                 : progress.sceneDetectStatus === 'running'
-                  ? 'シーン変化を解析しています...'
-                  : '内部シーンはまだ検出されていません'}
+                  ? t('scenes.emptyRunningTitle')
+                  : t('scenes.emptyNoneTitle')}
             </p>
             <p className="mt-1.5 text-xs text-[#94A0B2] leading-relaxed">
               {sourceType === 'youtube'
-                ? 'ブラウザのセキュリティ仕様上、YouTube埋め込み動画の映像フレーム・音声波形への直接アクセスが制限されているため、ローカル動画読み込み時のみ利用できます。概要欄から読み込んだチャプターは「マーカー＆チャプター」タブで編集できます。'
-                : 'バックグラウンドで映像フレーム差分と音声エネルギー変化を解析し、随時ここに追加されます。'}
+                ? t('scenes.emptyYouTubeDesc')
+                : t('scenes.emptyLocalDesc')}
             </p>
           </div>
         ) : (
@@ -139,7 +143,7 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectScene(scene.id, scene.frameIndex)}
-                    className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors flex items-center justify-between gap-3 cursor-pointer ${
+                    className={`w-full text-start px-3 py-2.5 rounded-md border transition-colors flex items-center justify-between gap-3 cursor-pointer ${
                       isNearCurrent
                         ? 'bg-sky-500/[0.15] border-sky-400/80'
                         : isLastSelected
@@ -148,11 +152,14 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
                     }`}
                   >
                     <div className="min-w-0">
-                      <div className="flex items-baseline gap-2 font-mono-tabular">
-                        <span className="text-xs text-sky-400 font-semibold">
-                          S{String(scene.sceneNumber).padStart(2, '0')}
+                      <div className="flex items-baseline gap-2 font-mono-tabular flex-wrap">
+                        <span dir="ltr" className="text-xs text-sky-400 font-semibold">
+                          {t('scenes.sceneIndexBadge', {
+                            number: String(scene.sceneNumber).padStart(2, '0'),
+                          })}
                         </span>
                         <span
+                          dir="ltr"
                           className={`text-sm font-bold ${
                             isNearCurrent
                               ? 'text-sky-300'
@@ -164,27 +171,29 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
                           {hms}
                           <span className="text-xs font-normal text-[#647082]">.{ms}</span>
                         </span>
-                        <span className="text-xs text-[#94A0B2]">#{scene.frameIndex}</span>
+                        <span dir="ltr" className="text-xs text-[#94A0B2]">#{scene.frameIndex}</span>
                         {isLastSelected && !isNearCurrent && (
                           <span className="font-sans text-[10px] font-medium text-sky-300/90 whitespace-nowrap">
-                            選択位置
+                            {t('scenes.selectedPosition')}
                           </span>
                         )}
                         {isNearCurrent && (
                           <span className="font-sans text-[10px] font-semibold text-sky-300 whitespace-nowrap">
-                            現在位置
+                            {t('scenes.currentPosition')}
                           </span>
                         )}
                       </div>
                       <div className="mt-0.5 text-[11px] text-[#7D899B] flex items-center gap-2">
-                        <span>{reasonLabelMap[scene.reason]}</span>
+                        <span>{t(reasonKeyMap[scene.reason])}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="font-mono-tabular">変化度 {Math.round(scene.score * 100)}%</span>
+                        <span className="font-mono-tabular">
+                          {t('scenes.changeScore', { score: Math.round(scene.score * 100) })}
+                        </span>
                       </div>
                     </div>
 
                     <span className="text-[11px] text-sky-400/90 font-medium whitespace-nowrap shrink-0">
-                      シーク →
+                      {t('scenes.seekAction')}
                     </span>
                   </button>
                   <TimelinePlayheadGap

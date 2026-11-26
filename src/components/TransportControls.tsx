@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { InternalScene, Marker, PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
+import { useI18n } from '../i18n';
 
 interface TransportControlsProps {
   currentTimeSec: number;
@@ -49,6 +50,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
   onJumpPrevMarker,
   onJumpNextMarker,
 }) => {
+  const { t, tp } = useI18n();
   const scrubberRef = useRef<HTMLDivElement>(null);
   const safeDuration = Math.max(0.01, durationSec);
   const playheadPct = Math.max(0, Math.min(100, (currentTimeSec / safeDuration) * 100));
@@ -81,26 +83,27 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 bg-amber-400 inline-block rounded-[1px]" aria-hidden="true" />
-              マーカー ({markers.length})
+              {t('transport.markersLegend', { count: markers.length })}
             </span>
             <span aria-hidden="true">·</span>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 bg-sky-400 inline-block rounded-[1px]" aria-hidden="true" />
-              内部シーン参考点 ({internalScenes.length})
+              {t('transport.internalScenesLegend', { count: internalScenes.length })}
             </span>
           </div>
           <span className="font-mono-tabular text-[#647082]">
-            操作可能範囲: 00:00:00 – {formatTimecodeHMS(analyzedMaxTimeSec)}
+            {t('transport.playableRange', { timecode: formatTimecodeHMS(analyzedMaxTimeSec) })}
           </span>
         </div>
 
-        {/* Scrubber Track */}
+        {/* Scrubber Track (strictly LTR time progression) */}
         <div
           ref={scrubberRef}
+          dir="ltr"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           role="slider"
-          aria-label="動画シークバー"
+          aria-label={t('transport.seekBarAriaLabel')}
           aria-valuemin={0}
           aria-valuemax={Math.round(durationSec)}
           aria-valuenow={Math.round(currentTimeSec)}
@@ -128,7 +131,10 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
               <button
                 key={m.id}
                 type="button"
-                title={`マーカー: ${formatTimecodeHMS(m.timeSec)} (#${m.frameIndex})`}
+                title={t('transport.markerPinTitle', {
+                  timecode: formatTimecodeHMS(m.timeSec),
+                  frame: m.frameIndex,
+                })}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   onSeekToFrame(m.frameIndex);
@@ -149,7 +155,11 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
               <button
                 key={sc.id}
                 type="button"
-                title={`内部シーン参考 #${sc.sceneNumber}: ${formatTimecodeHMS(sc.timeSec)} (フレーム #${sc.frameIndex})`}
+                title={t('transport.sceneTickTitle', {
+                  sceneNumber: sc.sceneNumber,
+                  timecode: formatTimecodeHMS(sc.timeSec),
+                  frame: sc.frameIndex,
+                })}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   onSeekToFrame(sc.frameIndex);
@@ -174,11 +184,11 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
       {/* Row 1: Primary Playback Transport + Add Marker CTA */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div dir="ltr" className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={onPlayReverse}
-            title="逆方向再生 (J)"
+            title={t('transport.reverseTitle')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               playbackMode === 'reverse'
                 ? 'bg-sky-500/20 text-sky-300 border-sky-400/60'
@@ -186,14 +196,14 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             }`}
           >
             <Rewind className="w-3.5 h-3.5" />
-            逆再生
+            {t('transport.reverseLabel')}
             <kbd className="text-[10px] font-mono-tabular text-[#647082] ml-0.5">J</kbd>
           </button>
 
           <button
             type="button"
             onClick={playbackMode === 'paused' ? onPlayForward : onPause}
-            title="再生 / 停止 (Space / K)"
+            title={t('transport.playPauseTitle')}
             className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               playbackMode === 'paused'
                 ? 'bg-[#232934] text-[#F8FAFC] border-[#384152] hover:bg-[#2C3342]'
@@ -203,12 +213,12 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             {playbackMode === 'paused' ? (
               <>
                 <Play className="w-3.5 h-3.5" />
-                停止中
+                {t('transport.pausedLabel')}
               </>
             ) : (
               <>
                 <Pause className="w-3.5 h-3.5" />
-                停止
+                {t('transport.stopLabel')}
               </>
             )}
             <kbd className="text-[10px] font-mono-tabular text-[#647082] ml-0.5">K</kbd>
@@ -217,7 +227,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           <button
             type="button"
             onClick={onPlayForward}
-            title="順方向再生 (L)"
+            title={t('transport.forwardTitle')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               playbackMode === 'forward'
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/60'
@@ -225,7 +235,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             }`}
           >
             <Play className="w-3.5 h-3.5" />
-            順再生
+            {t('transport.forwardLabel')}
             <kbd className="text-[10px] font-mono-tabular text-[#647082] ml-0.5">L</kbd>
           </button>
 
@@ -236,20 +246,20 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             type="button"
             onClick={onJumpPrevMarker}
             disabled={markers.length === 0}
-            title="前のマーカーへ移動 (P)"
+            title={t('transport.prevMarkerTitle')}
             className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-medium rounded-md bg-[#1B1F27] text-[#CBD5E1] border border-[#2C3340] hover:bg-[#232934] disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:cursor-not-allowed"
           >
             <SkipBack className="w-3.5 h-3.5" />
-            前マーク
+            {t('transport.prevMarkerLabel')}
           </button>
           <button
             type="button"
             onClick={onJumpNextMarker}
             disabled={markers.length === 0}
-            title="次のマーカーへ移動 (N)"
+            title={t('transport.nextMarkerTitle')}
             className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-medium rounded-md bg-[#1B1F27] text-[#CBD5E1] border border-[#2C3340] hover:bg-[#232934] disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:cursor-not-allowed"
           >
-            次マーク
+            {t('transport.nextMarkerLabel')}
             <SkipForward className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -258,11 +268,11 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         <button
           type="button"
           onClick={onAddMarkerAtCurrent}
-          title="現在フレームにマーカーを追加 (M)"
+          title={t('transport.addMarkerTitle')}
           className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           <BookmarkPlus className="w-4 h-4" />
-          現在位置にマーク追加
+          {t('transport.addMarkerLabel')}
           <kbd className="text-[10px] font-mono-tabular px-1 py-0.5 rounded bg-black/15 text-[#0D0F12]">M</kbd>
         </button>
       </div>
@@ -272,17 +282,20 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         {/* Frame Stepping / Skipping */}
         <div className="flex flex-wrap items-center justify-between gap-2 bg-[#101318] border border-[#212630] rounded-md px-3 py-2">
           <span className="text-[11px] font-medium text-[#94A0B2] whitespace-nowrap shrink-0">
-            フレーム移動
+            {t('transport.frameMoveLabel')}
           </span>
-          <div className="flex items-center gap-1">
+          <div dir="ltr" className="flex items-center gap-1">
             {[-30, -10, -1, 1, 10, 30].map((delta) => {
               const isSingle = Math.abs(delta) === 1;
+              const signedDelta = delta > 0 ? `+${delta}` : String(delta);
               return (
                 <button
                   key={delta}
                   type="button"
                   onClick={() => onStepFrames(delta)}
-                  title={`${delta > 0 ? `+${delta}` : delta} フレーム移動`}
+                  title={tp('transport.frameMoveButtonTitle', Math.abs(delta), {
+                    delta: signedDelta,
+                  })}
                   className={`inline-flex items-center justify-center gap-0.5 px-2.5 py-1.5 text-xs font-mono-tabular rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     isSingle
                       ? 'bg-[#242B37] text-[#F8FAFC] hover:bg-amber-500/25 hover:text-amber-200 font-semibold'
@@ -290,7 +303,9 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
                   }`}
                 >
                   {delta === -1 && <ChevronLeft className="w-3 h-3" />}
-                  <span>{delta > 0 ? `+${delta}f` : `${delta}f`}</span>
+                  <span>
+                    {t('transport.frameDeltaButton', { delta: signedDelta })}
+                  </span>
                   {delta === 1 && <ChevronRight className="w-3 h-3" />}
                 </button>
               );
@@ -301,24 +316,27 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         {/* Second Skipping */}
         <div className="flex flex-wrap items-center justify-between gap-2 bg-[#101318] border border-[#212630] rounded-md px-3 py-2">
           <span className="text-[11px] font-medium text-[#94A0B2] whitespace-nowrap shrink-0">
-            秒スキップ
+            {t('transport.secondSkipLabel')}
           </span>
-          <div className="flex items-center gap-1">
+          <div dir="ltr" className="flex items-center gap-1">
             {[-15, -10, -1, 1, 10, 15].map((delta) => {
               const isSingle = Math.abs(delta) === 1;
+              const signedDelta = delta > 0 ? `+${delta}` : String(delta);
               return (
                 <button
                   key={delta}
                   type="button"
                   onClick={() => onStepSeconds(delta)}
-                  title={`${delta > 0 ? `+${delta}` : delta} 秒スキップ`}
+                  title={tp('transport.secondSkipButtonTitle', Math.abs(delta), {
+                    delta: signedDelta,
+                  })}
                   className={`inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-mono-tabular rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     isSingle
                       ? 'bg-[#242B37] text-[#F8FAFC] hover:bg-amber-500/25 hover:text-amber-200 font-semibold'
                       : 'bg-[#191E26] text-[#CBD5E1] hover:bg-[#252C38]'
                   }`}
                 >
-                  {delta > 0 ? `+${delta}s` : `${delta}s`}
+                  {t('transport.secondDeltaButton', { delta: signedDelta })}
                 </button>
               );
             })}

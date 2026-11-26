@@ -1,4 +1,5 @@
 import type { AudioTrackInfo, FrameMapEntry, VideoMetadata } from '../types/video';
+import { translate } from '../i18n';
 
 interface Mp4BoxHeader {
   type: string;
@@ -69,7 +70,7 @@ function formatCodecName(fourcc: string): string {
     twos: 'PCM 16-bit BE',
     alac: 'Apple Lossless (ALAC)',
   };
-  return map[fourcc] ?? (fourcc || 'Unknown');
+  return map[fourcc] ?? (fourcc || translate('metadata.unknownCodec'));
 }
 
 function formatBrandName(brand: string): string {
@@ -266,7 +267,7 @@ async function scanMp4Container(file: File): Promise<ParsedMp4Container | null> 
       }
     } else if (handlerType === 'soun') {
       const stsd = findFirstChildBox(moovView, stblStart, stblEnd, 'stsd');
-      let codec = 'Audio';
+      let codec = translate('metadata.audioGeneric');
       let channels: number | undefined;
       let sampleRate: number | undefined;
 
@@ -293,7 +294,7 @@ async function scanMp4Container(file: File): Promise<ParsedMp4Container | null> 
 
   return {
     containerFormat: formatBrandName(ftypBrand),
-    videoCodec: videoCodec || 'Unknown',
+    videoCodec: videoCodec || translate('metadata.unknownCodec'),
     videoTimescale,
     videoDurationUnits,
     width,
@@ -348,7 +349,7 @@ async function sniffWebmOrContainer(file: File): Promise<{
 
   const ext = file.name.split('.').pop()?.toUpperCase() || '';
   if (!isEbml) {
-    let container = ext || file.type || 'Video';
+    let container = ext || file.type || translate('metadata.videoGeneric');
     if (bytes.length >= 12) {
       const riff = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
       if (riff === 'RIFF') container = 'AVI (RIFF)';
@@ -356,7 +357,7 @@ async function sniffWebmOrContainer(file: File): Promise<{
     }
     return {
       containerFormat: container,
-      videoCodec: 'Browser Decoded',
+      videoCodec: translate('metadata.browserDecoded'),
       audioTracks: [],
       isEbml: false,
     };
@@ -373,9 +374,9 @@ async function sniffWebmOrContainer(file: File): Promise<{
     ? 'WebM (EBML)'
     : ascii.includes('matroska')
       ? 'Matroska / MKV'
-      : ext || 'EBML Video';
+      : ext || translate('metadata.ebmlVideo');
 
-  let videoCodec = 'Unknown';
+  let videoCodec = translate('metadata.unknownCodec');
   if (ascii.includes('V_VP9')) videoCodec = 'VP9 (V_VP9)';
   else if (ascii.includes('V_VP8')) videoCodec = 'VP8 (V_VP8)';
   else if (ascii.includes('V_AV1')) videoCodec = 'AV1 (V_AV1)';
@@ -460,7 +461,7 @@ export function probeBrowserVideoMetadata(objectUrl: string): Promise<{
 
     v.onerror = () => {
       cleanup();
-      reject(new Error('この動画ファイルはブラウザで再生・解析できませんでした。対応形式（MP4 / WebM / MOV 等）をご確認ください。'));
+      reject(new Error(translate('errors.videoPlayParseFailed')));
     };
 
     v.src = objectUrl;
@@ -524,7 +525,7 @@ export async function analyzeVideoAndBuildFrameMap(
       mp4Parsed.audioTracks.length > 0
         ? mp4Parsed.audioTracks
         : browserProbe.hasAudioHint
-          ? [{ index: 1, codec: 'Audio Track' }]
+          ? [{ index: 1, codec: translate('metadata.audioTrackFallback') }]
           : [];
 
     const metadata: VideoMetadata = {
@@ -650,7 +651,7 @@ export async function analyzeVideoAndBuildFrameMap(
     sniffed.audioTracks.length > 0
       ? sniffed.audioTracks
       : browserProbe.hasAudioHint
-        ? [{ index: 1, codec: 'Audio Track' }]
+        ? [{ index: 1, codec: translate('metadata.audioTrackFallback') }]
         : [];
 
   const metadata: VideoMetadata = {

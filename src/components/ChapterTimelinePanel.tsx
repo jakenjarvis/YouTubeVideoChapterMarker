@@ -16,6 +16,7 @@ import {
 import type { ChapterTitle, Marker, PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
 import { computePlayheadSlot, TimelinePlayheadGap } from './TimelinePlayheadSlot';
+import { useI18n } from '../i18n';
 
 interface ChapterTimelinePanelProps {
   markers: Marker[];
@@ -62,6 +63,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
   onReorderUnassignedTitle,
   onAutoAssignUnassigned,
 }) => {
+  const { t } = useI18n();
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState('');
   const [addingMarkerId, setAddingMarkerId] = useState<string | null>(null);
@@ -168,11 +170,11 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
       {/* Sub-header summary */}
       <div className="px-4 py-3 border-b border-[#222731] flex items-center justify-between gap-2 shrink-0">
         <div className="text-xs text-[#94A0B2] flex items-center gap-2 font-mono-tabular">
-          <span>マーク {sortedMarkers.length}</span>
+          <span>{t('chapters.summaryMarkers', { count: sortedMarkers.length })}</span>
           <span aria-hidden="true" className="text-[#454E5E]">·</span>
-          <span>割当済 {assignedCount}</span>
+          <span>{t('chapters.summaryAssigned', { count: assignedCount })}</span>
           <span aria-hidden="true" className="text-[#454E5E]">·</span>
-          <span>未割当 {unassignedTitles.length}</span>
+          <span>{t('chapters.summaryUnassigned', { count: unassignedTitles.length })}</span>
         </div>
         <button
           type="button"
@@ -180,7 +182,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
           className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
-          現在位置をマーク
+          {t('chapters.markCurrentButton')}
         </button>
       </div>
 
@@ -189,9 +191,11 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
         {sortedMarkers.length === 0 ? (
           <div className="my-1.5 py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
             <Bookmark className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
-            <p className="text-sm font-medium text-[#E2E8F0]">マーカーがまだありません</p>
+            <p className="text-sm font-medium text-[#E2E8F0]">{t('chapters.emptyTitle')}</p>
             <p className="mt-1.5 text-xs text-[#94A0B2] leading-relaxed">
-              動画をシークして <kbd className="font-mono-tabular text-[#E2E8F0]">M</kbd> キーまたは「現在位置にマーク追加」を押すと、縦軸タイムラインに時間が追加されます。
+              {t('chapters.emptyDescBeforeKey')}
+              <kbd className="font-mono-tabular text-[#E2E8F0]">M</kbd>
+              {t('chapters.emptyDescAfterKey')}
             </p>
             <button
               type="button"
@@ -199,7 +203,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
               className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              最初のマーカーを追加
+              {t('chapters.addFirstMarker')}
             </button>
           </div>
         ) : (
@@ -255,7 +259,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                   >
                     {/* Left Column: Chronological Marker Timestamp & Seek Trigger */}
                     <div
-                      className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-r rounded-l-md transition-colors ${
+                      className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-e rounded-s-md transition-colors ${
                         isCurrent
                           ? 'border-amber-400/35 bg-amber-500/[0.12]'
                           : isLastSelected
@@ -266,11 +270,15 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectMarker(marker.id, marker.frameIndex)}
-                        title={`クリックして ${formatTimecodeHMS(marker.timeSec)} (フレーム #${marker.frameIndex}) へシーク`}
-                        className="text-left group/seek cursor-pointer"
+                        title={t('chapters.seekMarkerTitle', {
+                          timecode: formatTimecodeHMS(marker.timeSec),
+                          frame: marker.frameIndex,
+                        })}
+                        className="text-start group/seek cursor-pointer"
                       >
                         <div
-                          className={`font-mono-tabular text-sm font-bold leading-tight transition-colors ${
+                          dir="ltr"
+                          className={`font-mono-tabular text-sm font-bold leading-tight transition-colors w-fit ${
                             isCurrent
                               ? 'text-amber-400'
                               : isLastSelected
@@ -280,7 +288,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                         >
                           {formatTimecodeHMS(marker.timeSec)}
                         </div>
-                        <div className="font-mono-tabular text-[11px] text-[#647082] mt-0.5">
+                        <div dir="ltr" className="font-mono-tabular text-[11px] text-[#647082] mt-0.5 w-fit">
                           #{marker.frameIndex}
                         </div>
                       </button>
@@ -292,23 +300,23 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                               isCurrent || isLastSelected ? 'text-amber-400/90 font-semibold' : 'text-[#566071]'
                             }`}
                           >
-                            M{String(idx + 1).padStart(2, '0')}
+                            {t('chapters.markerIndexBadge', { number: String(idx + 1).padStart(2, '0') })}
                           </span>
                           {isLastSelected && !isCurrent && (
                             <span className="text-[10px] font-medium text-amber-300/90 whitespace-nowrap">
-                              選択位置
+                              {t('chapters.selectedPosition')}
                             </span>
                           )}
                           {isCurrent && (
                             <span className="text-[10px] font-semibold text-amber-300 whitespace-nowrap">
-                              現在位置
+                              {t('chapters.currentPosition')}
                             </span>
                           )}
                         </div>
                         <button
                           type="button"
                           onClick={() => onDeleteMarker(marker.id)}
-                          title="このマーカーを削除（割当中のタイトルは未割当リストへ移動します）"
+                          title={t('chapters.deleteMarkerTitle')}
                           className="p-0.5 text-[#647082] hover:text-red-400 transition-colors cursor-pointer shrink-0"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -323,6 +331,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                       <div className="w-full flex items-center gap-1.5">
                         <input
                           type="text"
+                          dir="auto"
                           value={editingDraft}
                           autoFocus
                           onChange={(e) => setEditingDraft(e.target.value)}
@@ -338,7 +347,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                         <button
                           type="button"
                           onClick={commitEditing}
-                          title="保存"
+                          title={t('common.save')}
                           className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
                         >
                           <Check className="w-4 h-4" />
@@ -349,7 +358,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                             setEditingTitleId(null);
                             setEditingDraft('');
                           }}
-                          title="キャンセル"
+                          title={t('common.cancel')}
                           className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
                         >
                           <X className="w-4 h-4" />
@@ -367,9 +376,10 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                         <GripVertical className="w-3.5 h-3.5 text-[#586274] shrink-0" />
                         <button
                           type="button"
+                          dir="auto"
                           onClick={() => startEditing(assignedTitle)}
-                          title="クリックしてタイトルを編集 / ドラッグして別の時間へ移動・入れ替え"
-                          className="flex-1 min-w-0 text-left text-sm font-medium text-[#F3F5F8] hover:text-amber-200 truncate cursor-text"
+                          title={t('chapters.editTitleTooltip')}
+                          className="flex-1 min-w-0 text-start text-sm font-medium text-[#F3F5F8] hover:text-amber-200 truncate cursor-text"
                         >
                           {assignedTitle.text}
                         </button>
@@ -380,7 +390,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                             type="button"
                             disabled={idx === 0}
                             onClick={() => onStepTitleOnTimeline(assignedTitle.id, -1)}
-                            title="上のマーカーへ移動（タイトルがある場合は入れ替え）"
+                            title={t('chapters.moveTitleUpTooltip')}
                             className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -389,7 +399,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                             type="button"
                             disabled={idx === sortedMarkers.length - 1}
                             onClick={() => onStepTitleOnTimeline(assignedTitle.id, 1)}
-                            title="下のマーカーへ移動（タイトルがある場合は入れ替え）"
+                            title={t('chapters.moveTitleDownTooltip')}
                             className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
@@ -398,7 +408,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                             <button
                               type="button"
                               onClick={() => onShiftTitlesDownFromMarker(idx)}
-                              title="この行以降のタイトルをすべて1つ下のマーカーへシフト"
+                              title={t('chapters.shiftTitlesDownTooltip')}
                               className="p-1 text-[#94A0B2] hover:text-amber-300 hover:bg-[#242A36] rounded cursor-pointer"
                             >
                               <ArrowDownToLine className="w-3.5 h-3.5" />
@@ -407,7 +417,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                           <button
                             type="button"
                             onClick={() => onUnassignTitle(assignedTitle.id)}
-                            title="割当解除（未割当リストへ戻す）"
+                            title={t('chapters.unassignTitleTooltip')}
                             className="p-1 text-[#94A0B2] hover:text-sky-300 hover:bg-[#242A36] rounded cursor-pointer"
                           >
                             <Unlink className="w-3.5 h-3.5" />
@@ -415,7 +425,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                           <button
                             type="button"
                             onClick={() => onDeleteTitle(assignedTitle.id)}
-                            title="タイトルを削除（マーカーは残ります）"
+                            title={t('chapters.deleteTitleTooltip')}
                             className="p-1 text-[#94A0B2] hover:text-red-400 hover:bg-[#242A36] rounded cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -427,8 +437,9 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                     <div className="w-full flex items-center gap-1.5">
                       <input
                         type="text"
+                        dir="auto"
                         value={addingMarkerDraft}
-                        placeholder="チャプタータイトルを入力..."
+                        placeholder={t('chapters.enterTitlePlaceholder')}
                         autoFocus
                         onChange={(e) => setAddingMarkerDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -461,7 +472,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                   ) : (
                     <div className="w-full flex items-center justify-between gap-2">
                       <span className="text-xs text-[#5E687A] italic select-none">
-                        {isDropHover ? 'ここにドロップして割当' : 'タイトルなし（ドラッグで割当可）'}
+                        {isDropHover ? t('chapters.dropToAssign') : t('chapters.noTitleHint')}
                       </span>
                       <button
                         type="button"
@@ -472,7 +483,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                         className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#222834] rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         <Plus className="w-3 h-3" />
-                        タイトル入力
+                        {t('chapters.enterTitleButton')}
                       </button>
                     </div>
                   )}
@@ -507,17 +518,17 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
       >
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="text-xs font-medium text-[#CBD5E1]">
-            未割当チャプタータイトル ({unassignedTitles.length})
+            {t('chapters.unassignedHeader', { count: unassignedTitles.length })}
           </div>
           {unassignedTitles.length > 0 && emptyMarkerCount > 0 && (
             <button
               type="button"
               onClick={onAutoAssignUnassigned}
-              title="未割当タイトルを上から順に、タイトル未設定のマーカーへ割り当てます"
+              title={t('chapters.autoAssignTooltip')}
               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors whitespace-nowrap cursor-pointer"
             >
               <Wand2 className="w-3 h-3" />
-              空きマーカーへ自動割当
+              {t('chapters.autoAssignButton')}
             </button>
           )}
         </div>
@@ -539,6 +550,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                   <div className="flex-1 flex items-center gap-1 min-w-0">
                     <input
                       type="text"
+                      dir="auto"
                       value={editingDraft}
                       autoFocus
                       onChange={(e) => setEditingDraft(e.target.value)}
@@ -562,8 +574,9 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                 ) : (
                   <button
                     type="button"
+                    dir="auto"
                     onClick={() => startEditing(title)}
-                    className="flex-1 min-w-0 text-left text-xs text-[#E2E8F0] hover:text-amber-200 truncate cursor-text"
+                    className="flex-1 min-w-0 text-start text-xs text-[#E2E8F0] hover:text-amber-200 truncate cursor-text"
                   >
                     {title.text}
                   </button>
@@ -579,7 +592,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                           onMoveOrSwapTitleToMarker(title.id, firstEmpty.id);
                         }
                       }}
-                      title="先頭の空きマーカーに割り当て"
+                      title={t('chapters.assignToFirstEmptyTooltip')}
                       className="p-1 text-[#94A0B2] hover:text-amber-300 rounded cursor-pointer"
                     >
                       <CornerDownRight className="w-3 h-3" />
@@ -589,7 +602,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                     type="button"
                     disabled={uIdx === 0}
                     onClick={() => onReorderUnassignedTitle(title.id, -1)}
-                    title="上へ移動"
+                    title={t('chapters.moveUpTooltip')}
                     className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] disabled:opacity-30 rounded cursor-pointer"
                   >
                     <ArrowUp className="w-3 h-3" />
@@ -598,7 +611,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                     type="button"
                     disabled={uIdx === unassignedTitles.length - 1}
                     onClick={() => onReorderUnassignedTitle(title.id, 1)}
-                    title="下へ移動"
+                    title={t('chapters.moveDownTooltip')}
                     className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] disabled:opacity-30 rounded cursor-pointer"
                   >
                     <ArrowDown className="w-3 h-3" />
@@ -606,7 +619,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onDeleteTitle(title.id)}
-                    title="削除"
+                    title={t('common.delete')}
                     className="p-1 text-[#94A0B2] hover:text-red-400 rounded cursor-pointer"
                   >
                     <X className="w-3 h-3" />
@@ -621,9 +634,10 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
         <form onSubmit={commitUnassignedNewTitle} className="flex items-center gap-1.5">
           <input
             type="text"
+            dir="auto"
             value={newUnassignedDraft}
             onChange={(e) => setNewUnassignedDraft(e.target.value)}
-            placeholder="新しいチャプタータイトルを追加..."
+            placeholder={t('chapters.addNewTitlePlaceholder')}
             className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-[#181C24] border border-[#2A313E] focus:border-amber-400/70 rounded text-[#F3F5F8] placeholder:text-[#5E687A] focus:outline-none"
           />
           <button
@@ -632,7 +646,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-[#242B37] hover:bg-[#2F3847] text-[#F3F5F8] rounded disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5" />
-            追加
+            {t('common.add')}
           </button>
         </form>
       </div>

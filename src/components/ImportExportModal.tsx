@@ -7,6 +7,7 @@ import {
   parseTypeBText,
   type ParsedTypeBEntry,
 } from '../utils/timecode';
+import { useI18n } from '../i18n';
 
 type ModalTab = 'importA' | 'importB' | 'exportB';
 
@@ -21,16 +22,6 @@ interface ImportExportModalProps {
   onImportTypeB: (entries: ParsedTypeBEntry[], replaceExisting: boolean) => void;
 }
 
-const TYPE_A_PLACEHOLDER = `アジェンダ
-イベントの主旨について
-結局のところ？
-最後に`;
-
-const TYPE_B_PLACEHOLDER = `00:00:00 アジェンダ
-00:10:04 イベントの主旨について
-00:25:12 結局のところ？
-00:32:05 最後に`;
-
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   isOpen,
   initialTab = 'exportB',
@@ -41,6 +32,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onImportTypeA,
   onImportTypeB,
 }) => {
+  const { t, tp } = useI18n();
   const [activeTab, setActiveTab] = useState<ModalTab>(initialTab);
   const [typeAInput, setTypeAInput] = useState('');
   const [typeAReplace, setTypeAReplace] = useState(false);
@@ -83,12 +75,15 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
   const handleDownloadTxt = () => {
     if (!exportedText) return;
-    const baseName = fileName ? fileName.replace(/\.[^.]+$/, '') : 'youtube_chapters';
+    const rawBase = fileName
+      ? fileName.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_').trim()
+      : '';
+    const baseName = rawBase || t('importExport.defaultExportBaseName');
     const blob = new Blob([exportedText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${baseName}_chapters.txt`;
+    a.download = t('importExport.exportFileName', { baseName });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -112,13 +107,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           <div className="flex items-center gap-2.5">
             <FileText className="w-4 h-4 text-amber-400" />
             <h2 id="import-export-title" className="text-base font-semibold text-[#F3F5F8]">
-              チャプターテキスト インポート / エクスポート
+              {t('importExport.modalTitle')}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="閉じる"
+            aria-label={t('common.close')}
             className="p-1.5 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#222834] rounded-md transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -137,7 +132,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   : 'text-[#94A0B2] hover:text-[#F3F5F8]'
               }`}
             >
-              出力（タイプB）
+              {t('importExport.tabExportB')}
             </button>
             <button
               type="button"
@@ -148,7 +143,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   : 'text-[#94A0B2] hover:text-[#F3F5F8]'
               }`}
             >
-              読込（タイプA：タイトルのみ）
+              {t('importExport.tabImportA')}
             </button>
             <button
               type="button"
@@ -159,7 +154,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   : 'text-[#94A0B2] hover:text-[#F3F5F8]'
               }`}
             >
-              読込（タイプB：時刻付き）
+              {t('importExport.tabImportB')}
             </button>
           </div>
         </div>
@@ -169,7 +164,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {activeTab === 'exportB' && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#94A0B2]">
-                <span>YouTube概要欄形式（<span className="font-mono-tabular text-[#E2E8F0]">00:00:00 チャプター名</span>）</span>
+                <span>
+                  {t('importExport.exportFormatPrefix')}
+                  <span className="font-mono-tabular text-[#E2E8F0]">{t('importExport.exportFormatExample')}</span>
+                  {t('importExport.exportFormatSuffix')}
+                </span>
                 <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[#CBD5E1]">
                   <input
                     type="checkbox"
@@ -177,21 +176,25 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     onChange={(e) => setIncludeUntitled(e.target.checked)}
                     className="accent-amber-400 rounded"
                   />
-                  タイトル未割当のマーカーも含める
+                  {t('importExport.includeUntitledLabel')}
                 </label>
               </div>
 
               <textarea
                 readOnly
+                dir="ltr"
                 value={exportedText}
                 rows={10}
-                placeholder="マーカーにチャプタータイトルを割り当てると、ここにYouTube概要欄用のテキストが自動生成されます。"
+                placeholder={t('importExport.exportPlaceholder')}
                 className="w-full p-4 font-mono-tabular text-sm leading-relaxed bg-[#0D0F12] border border-[#262C38] rounded-lg text-[#F3F5F8] placeholder:text-[#566071] focus:outline-none focus:border-amber-400/60 resize-y"
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <span className="text-xs font-mono-tabular text-[#94A0B2]">
-                  出力行数: {exportedText ? exportedText.split('\n').length : 0} 行
+                  {tp(
+                    'importExport.outputLineCount',
+                    exportedText ? exportedText.split('\n').length : 0
+                  )}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -201,7 +204,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-[#E2E8F0] bg-[#1E232C] hover:bg-[#272E3A] border border-[#323A48] rounded-md disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    .txt保存
+                    {t('importExport.downloadTxt')}
                   </button>
                   <button
                     type="button"
@@ -212,12 +215,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     {copied ? (
                       <>
                         <Check className="w-3.5 h-3.5" />
-                        コピーしました
+                        {t('importExport.copied')}
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        クリップボードにコピー
+                        {t('importExport.copyToClipboard')}
                       </>
                     )}
                   </button>
@@ -229,14 +232,15 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {activeTab === 'importA' && (
             <>
               <p className="text-xs text-[#94A0B2] leading-relaxed">
-                1行につき1つのチャプタータイトルを入力・貼り付けしてください。読み込んだ各行はタイムライン上のマーカーへ自由にドラッグ＆ドロップや移動で割り当てられます。
+                {t('importExport.importADesc')}
               </p>
 
               <textarea
+                dir="auto"
                 value={typeAInput}
                 onChange={(e) => setTypeAInput(e.target.value)}
                 rows={9}
-                placeholder={TYPE_A_PLACEHOLDER}
+                placeholder={t('importExport.typeAPlaceholder')}
                 className="w-full p-4 text-sm leading-relaxed bg-[#0D0F12] border border-[#262C38] rounded-lg text-[#F3F5F8] placeholder:text-[#4D5666] focus:outline-none focus:border-amber-400/60 resize-y"
               />
 
@@ -249,7 +253,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       onChange={(e) => setTypeAAutoAssign(e.target.checked)}
                       className="accent-amber-400"
                     />
-                    空きマーカーへ上から自動割当
+                    {t('importExport.autoAssignEmptyLabel')}
                   </label>
                   <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                     <input
@@ -258,11 +262,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       onChange={(e) => setTypeAReplace(e.target.checked)}
                       className="accent-amber-400"
                     />
-                    既存のタイトルを置き換える
+                    {t('importExport.replaceExistingTitlesLabel')}
                   </label>
                 </div>
                 <span className="font-mono-tabular text-[#94A0B2]">
-                  検出タイトル: {parsedA.length} 件
+                  {tp('importExport.detectedTitlesCount', parsedA.length)}
                 </span>
               </div>
 
@@ -272,7 +276,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   onClick={onClose}
                   className="px-4 py-2 text-xs font-medium text-[#CBD5E1] hover:bg-[#222834] rounded-md transition-colors cursor-pointer"
                 >
-                  キャンセル
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -285,7 +289,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  タイプAを読み込む ({parsedA.length}件)
+                  {t('importExport.importAButton', { count: parsedA.length })}
                 </button>
               </div>
             </>
@@ -294,14 +298,19 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {activeTab === 'importB' && (
             <>
               <p className="text-xs text-[#94A0B2] leading-relaxed">
-                「<span className="font-mono-tabular text-[#E2E8F0]">00:00:00 タイトル</span>」形式（<span className="font-mono-tabular">MM:SS</span>形式も可）のテキストを貼り付けると、フレーム対応リストの該当フレームへマーカーとチャプタータイトルを同時登録します。
+                {t('importExport.importBDescPart1')}
+                <span className="font-mono-tabular text-[#E2E8F0]">{t('importExport.importBDescExample')}</span>
+                {t('importExport.importBDescPart2')}
+                <span className="font-mono-tabular">{t('importExport.importBDescMmSs')}</span>
+                {t('importExport.importBDescPart3')}
               </p>
 
               <textarea
+                dir="ltr"
                 value={typeBInput}
                 onChange={(e) => setTypeBInput(e.target.value)}
                 rows={9}
-                placeholder={TYPE_B_PLACEHOLDER}
+                placeholder={t('importExport.typeBPlaceholder')}
                 className="w-full p-4 font-mono-tabular text-sm leading-relaxed bg-[#0D0F12] border border-[#262C38] rounded-lg text-[#F3F5F8] placeholder:text-[#4D5666] focus:outline-none focus:border-amber-400/60 resize-y"
               />
 
@@ -309,7 +318,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 <div className="flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-md px-3 py-2">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    タイムスタンプ形式に一致しない行はスキップされます（行番号: {parsedB.skippedLines.join(', ')}）
+                    {t('importExport.skippedLinesWarning', { lines: parsedB.skippedLines.join(', ') })}
                   </span>
                 </div>
               )}
@@ -322,10 +331,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     onChange={(e) => setTypeBReplace(e.target.checked)}
                     className="accent-amber-400"
                   />
-                  既存のマーカーとタイトルを置き換える
+                  {t('importExport.replaceExistingMarkersLabel')}
                 </label>
                 <span className="font-mono-tabular text-[#94A0B2]">
-                  有効チャプター: {parsedB.entries.length} 件
+                  {tp('importExport.validChaptersCount', parsedB.entries.length)}
                 </span>
               </div>
 
@@ -335,7 +344,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   onClick={onClose}
                   className="px-4 py-2 text-xs font-medium text-[#CBD5E1] hover:bg-[#222834] rounded-md transition-colors cursor-pointer"
                 >
-                  キャンセル
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -348,7 +357,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  タイプBを読み込む ({parsedB.entries.length}件)
+                  {t('importExport.importBButton', { count: parsedB.entries.length })}
                 </button>
               </div>
             </>

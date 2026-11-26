@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, Check } from 'lucide-react';
 import type { AnalysisProgress, VideoMetadata } from '../types/video';
 import { formatFileSize, formatTimecodeHMS } from '../utils/timecode';
+import { useI18n } from '../i18n';
 
 interface MetadataBarProps {
   metadata: VideoMetadata;
@@ -14,6 +15,7 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
   progress,
   onInspectYouTubeDescription,
 }) => {
+  const { t, formatNumber } = useI18n();
   const isBgProcessing = !progress.frameIndexDone || progress.sceneDetectStatus === 'running';
   const isYouTube = metadata.sourceType === 'youtube';
 
@@ -37,21 +39,24 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
         <span aria-hidden="true" className="text-[#454E5E]">·</span>
         <span>{metadata.videoCodec}</span>
         <span aria-hidden="true" className="text-[#454E5E]">·</span>
-        <span className="font-mono-tabular">
+        <span dir="ltr" className="font-mono-tabular">
           {metadata.width}×{metadata.height}
         </span>
         <span aria-hidden="true" className="text-[#454E5E]">·</span>
-        <span className="font-mono-tabular text-[#CBD5E1]">
-          {metadata.averageFps.toFixed(2)} fps ({metadata.isVfr ? 'VFR' : 'CFR'})
+        <span dir="ltr" className="font-mono-tabular text-[#CBD5E1]">
+          {t('metadata.fpsWithMode', {
+            fps: metadata.averageFps.toFixed(2),
+            mode: metadata.isVfr ? t('metadata.vfrShort') : t('metadata.cfrShort'),
+          })}
         </span>
         <span aria-hidden="true" className="text-[#454E5E]">·</span>
-        <span className="font-mono-tabular">{formatTimecodeHMS(metadata.durationSec)}</span>
+        <span dir="ltr" className="font-mono-tabular">{formatTimecodeHMS(metadata.durationSec)}</span>
         <span aria-hidden="true" className="text-[#454E5E]">·</span>
         <span>
-          音声:{' '}
+          {t('metadataBar.audioPrefix')}{' '}
           {metadata.audioTracks.length > 0
-            ? metadata.audioTracks.map((t) => t.codec).join(', ')
-            : 'なし'}
+            ? metadata.audioTracks.map((tr) => tr.codec).join(', ')
+            : t('metadataBar.audioNone')}
         </span>
         {!isYouTube && (
           <>
@@ -69,7 +74,7 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
               onClick={onInspectYouTubeDescription}
               className="text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors whitespace-nowrap cursor-pointer"
             >
-              概要欄を確認
+              {t('metadataBar.inspectYouTubeDescription')}
             </button>
           </>
         )}
@@ -80,7 +85,7 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
         {!progress.frameIndexDone ? (
           <div className="flex items-center gap-2 text-amber-300">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>フレーム解析 {progress.frameIndexPercent}%</span>
+            <span>{t('metadataBar.frameAnalysisProgress', { percent: progress.frameIndexPercent })}</span>
             <div className="w-20 h-1.5 bg-[#222731] rounded-full overflow-hidden">
               <div
                 className="h-full bg-amber-400 transition-[width] duration-150"
@@ -90,19 +95,19 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
           </div>
         ) : (
           <span className="text-[#647082]">
-            フレーム対応表 {progress.analyzedFrameCount.toLocaleString()}f
+            {t('metadataBar.frameMapCount', { count: formatNumber(progress.analyzedFrameCount) })}
           </span>
         )}
 
         {isYouTube ? (
           <div className="flex items-center gap-1.5 text-[#94A0B2]">
             <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span>YouTube読込済</span>
+            <span>{t('metadataBar.youtubeLoaded')}</span>
           </div>
         ) : progress.sceneDetectStatus === 'running' ? (
           <div className="flex items-center gap-2 text-sky-300">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>バックグラウンドシーン検出 {progress.sceneDetectPercent}%</span>
+            <span>{t('metadataBar.bgSceneDetectProgress', { percent: progress.sceneDetectPercent })}</span>
             <div className="w-24 h-1.5 bg-[#222731] rounded-full overflow-hidden">
               <div
                 className="h-full bg-sky-400 transition-[width] duration-150"
@@ -113,10 +118,10 @@ export const MetadataBar: React.FC<MetadataBarProps> = ({
         ) : progress.sceneDetectDone ? (
           <div className="flex items-center gap-1.5 text-[#94A0B2]">
             <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span>解析完了 100%</span>
+            <span>{t('metadataBar.analysisDone')}</span>
           </div>
         ) : !isBgProcessing && progress.sceneDetectStatus === 'error' ? (
-          <span className="text-red-400">シーン検出中断</span>
+          <span className="text-red-400">{t('metadataBar.sceneDetectAborted')}</span>
         ) : null}
       </div>
     </div>

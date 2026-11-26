@@ -3,6 +3,7 @@ import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Down
 import type { AnalysisProgress, AppMode, VideoMetadata } from '../types/video';
 import { formatFileSize, formatTimecodeHMS } from '../utils/timecode';
 import { extractYouTubeVideoId } from '../utils/youtube';
+import { useI18n } from '../i18n';
 
 interface LoadingViewProps {
   mode: Extract<AppMode, 'select' | 'loading'>;
@@ -29,6 +30,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
   progress,
   onSkipToEdit,
 }) => {
+  const { t, tp, formatNumber } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [youtubeUrlInput, setYoutubeUrlInput] = useState('');
@@ -54,9 +56,9 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
         <div className="w-full max-w-2xl bg-[#14171C] border border-[#262B34] rounded-xl p-8">
           <div className="flex items-start justify-between gap-4 pb-6 border-b border-[#262B34]">
             <div>
-              <p className="text-xs text-amber-400 font-medium mb-1">読み込みモード · ステップ 2 / 3</p>
+              <p className="text-xs text-amber-400 font-medium mb-1">{t('loading.stepLabel')}</p>
               <h1 className="text-xl font-semibold text-[#F3F5F8] tracking-tight">
-                動画メタデータとフレーム対応リストを解析しています
+                {t('loading.analyzingHeading')}
               </h1>
             </div>
             <Loader2 className="w-5 h-5 text-amber-400 animate-spin shrink-0 mt-1" />
@@ -67,7 +69,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             <div>
               <div className="flex items-baseline justify-between mb-2">
                 <span className="text-sm font-medium text-[#E2E8F0]">
-                  フレーム対応リスト構築（VFR対応）
+                  {t('loading.frameMapBuilding')}
                 </span>
                 <span className="font-mono-tabular text-lg font-semibold text-amber-400">
                   {progress.frameIndexPercent}%
@@ -81,10 +83,12 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
               </div>
               <div className="mt-2 flex items-center justify-between text-xs text-[#94A0B2] font-mono-tabular">
                 <span>
-                  解析済みフレーム: {progress.analyzedFrameCount.toLocaleString()} フレーム
+                  {tp('loading.analyzedFrames', progress.analyzedFrameCount, {
+                    count: formatNumber(progress.analyzedFrameCount),
+                  })}
                 </span>
-                <span>
-                  解析済み範囲: {formatTimecodeHMS(progress.analyzedMaxTimeSec)}
+                <span dir="ltr">
+                  {t('loading.analyzedRange', { timecode: formatTimecodeHMS(progress.analyzedMaxTimeSec) })}
                 </span>
               </div>
             </div>
@@ -93,25 +97,28 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             {metadata && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-5 border-t border-[#262B34]">
                 <div>
-                  <div className="text-xs text-[#647082] mb-1">形式 / コーデック</div>
+                  <div className="text-xs text-[#647082] mb-1">{t('loading.metaFormatCodec')}</div>
                   <div className="text-sm font-medium text-[#F3F5F8] truncate" title={metadata.videoCodec}>
                     {metadata.containerFormat}
                   </div>
                   <div className="text-xs text-[#94A0B2] truncate">{metadata.videoCodec}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-[#647082] mb-1">フレームレート</div>
+                  <div className="text-xs text-[#647082] mb-1">{t('loading.metaFrameRate')}</div>
                   <div className="text-sm font-mono-tabular font-medium text-[#F3F5F8]">
-                    {metadata.averageFps.toFixed(2)} fps
+                    {t('metadata.fpsValue', { fps: metadata.averageFps.toFixed(2) })}
                   </div>
                   <div className="text-xs text-[#94A0B2]">
                     {metadata.isVfr
-                      ? `VFR (${metadata.minFps.toFixed(1)}–${metadata.maxFps.toFixed(1)})`
-                      : 'CFR（固定）'}
+                      ? t('metadata.vfrRange', {
+                          min: metadata.minFps.toFixed(1),
+                          max: metadata.maxFps.toFixed(1),
+                        })
+                      : t('loading.metaCfrFixed')}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-[#647082] mb-1">動画の長さ / 解像度</div>
+                  <div className="text-xs text-[#647082] mb-1">{t('loading.metaDurationResolution')}</div>
                   <div className="text-sm font-mono-tabular font-medium text-[#F3F5F8]">
                     {formatTimecodeHMS(metadata.durationSec)}
                   </div>
@@ -120,14 +127,14 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-[#647082] mb-1">音声トラック</div>
+                  <div className="text-xs text-[#647082] mb-1">{t('loading.metaAudioTracks')}</div>
                   <div className="text-sm font-medium text-[#F3F5F8]">
                     {metadata.audioTracks.length > 0
-                      ? `${metadata.audioTracks.length} トラック`
-                      : '検出なし'}
+                      ? tp('loading.metaAudioTrackCount', metadata.audioTracks.length)
+                      : t('loading.metaAudioNoneDetected')}
                   </div>
                   <div className="text-xs text-[#94A0B2] truncate">
-                    {metadata.audioTracks[0]?.codec ?? '映像のみ'}
+                    {metadata.audioTracks[0]?.codec ?? t('loading.metaVideoOnly')}
                   </div>
                 </div>
               </div>
@@ -136,11 +143,11 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             {/* 3-second rule explanation */}
             <div className="pt-5 border-t border-[#262B34] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <p className="text-xs text-[#94A0B2] leading-relaxed">
-                3秒以上かかる解析は自動的にバックグラウンド処理へ切り替わり、解析済みの範囲から即座に編集モードで操作できます（あと{' '}
+                {t('loading.threeSecRulePrefix')}
                 <span className="font-mono-tabular text-[#F3F5F8] font-medium">
-                  {remainingSec.toFixed(1)}秒
+                  {t('loading.threeSecRuleRemaining', { seconds: remainingSec.toFixed(1) })}
                 </span>
-                ）。
+                {t('loading.threeSecRuleSuffix')}
               </p>
               {metadata && (
                 <button
@@ -148,7 +155,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                   onClick={onSkipToEdit}
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  今すぐ編集へ進む
+                  {t('loading.skipToEdit')}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -165,13 +172,12 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
         {/* Clean Editorial Studio Intro */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight text-balance">
-            ローカル動画・YouTube動画から、精密にチャプターを作成・編集
+            {t('loading.introHeading')}
           </h1>
           <p className="mt-2.5 text-sm sm:text-base text-[#94A0B2] max-w-2xl leading-relaxed">
-            PC内の動画ファイルまたはYouTubeのURLを読み込み、フレーム対応リストを基準にシーク・マーキング。
-            YouTube動画の概要欄にある既存チャプターの取り込みと、YouTube概要欄形式（
-            <span className="font-mono-tabular text-[#E2E8F0]">00:00:00 タイトル</span>
-            ）の生成に対応しています。
+            {t('loading.introDescPrefix')}
+            <span className="font-mono-tabular text-[#E2E8F0]">{t('loading.introDescFormatExample')}</span>
+            {t('loading.introDescSuffix')}
           </p>
         </div>
 
@@ -214,16 +220,16 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
           </div>
 
           <p className="text-base font-medium text-[#F3F5F8]">
-            動画ファイルをここにドラッグ＆ドロップ、またはクリックして選択
+            {t('loading.dropzoneHeading')}
           </p>
           <p className="mt-2 text-xs text-[#94A0B2]">
-            MP4 · MOV · WebM · MKV · M4V などローカル動画ファイルに対応（ファイルは外部サーバーに送信されずブラウザ内で解析されます）
+            {t('loading.dropzoneSub')}
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <span className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[#0D0F12] bg-amber-400 group-hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap">
               <Film className="w-4 h-4" />
-              動画ファイルを選択
+              {t('loading.selectVideoFile')}
             </span>
           </div>
         </div>
@@ -241,20 +247,21 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             <div className="flex items-center gap-2">
               <Youtube className="w-4 h-4 text-amber-400 shrink-0" />
               <h2 className="text-sm font-semibold text-[#F3F5F8]">
-                YouTube URLから読み込む（読み取り専用）
+                {t('loading.youtubeSectionTitle')}
               </h2>
             </div>
             <span className="text-[11px] text-[#7D899B]">
-              動画の再生と概要欄のチャプターリスト取得に対応
+              {t('loading.youtubeSectionSub')}
             </span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2.5">
             <input
               type="text"
+              dir="ltr"
               value={youtubeUrlInput}
               onChange={(e) => setYoutubeUrlInput(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=... または https://youtu.be/..."
+              placeholder={t('loading.youtubeUrlPlaceholder')}
               className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-[#0D0F12] border border-[#2C3340] focus:border-amber-400/70 rounded-md text-[#F8FAFC] placeholder:text-[#566071] focus:outline-none font-mono-tabular"
             />
             <button
@@ -265,12 +272,12 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
               {isYouTubeLoading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  取得中...
+                  {t('loading.youtubeFetching')}
                 </>
               ) : (
                 <>
                   <Download className="w-3.5 h-3.5" />
-                  URLを読み込む
+                  {t('loading.youtubeLoadButton')}
                 </>
               )}
             </button>
@@ -284,11 +291,11 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                 onChange={(e) => setAutoImportChapters(e.target.checked)}
                 className="accent-amber-400"
               />
-              概要欄のチャプターリストをマーカー＆タイトルへ自動読み込みする
+              {t('loading.youtubeAutoImportLabel')}
             </label>
             {youtubeUrlInput.trim().length > 0 && !detectedYouTubeId && (
               <span className="text-[11px] text-amber-400">
-                有効なYouTubeのURLまたは11文字の動画IDを入力してください
+                {t('loading.youtubeInvalidUrlHint')}
               </span>
             )}
           </div>
@@ -305,21 +312,21 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
         {/* Workflow Steps & Instant Sample Generator */}
         <div className="mt-8 pt-6 border-t border-[#222730] grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <div className="text-xs font-mono-tabular text-[#647082] mb-1">01. フレーム対応リスト構築</div>
+            <div className="text-xs font-mono-tabular text-[#647082] mb-1">{t('loading.step1Title')}</div>
             <p className="text-xs text-[#94A0B2] leading-relaxed">
-              コンテナのメタデータとフレーム間隔を解析し、VFR動画でも時間とフレーム番号を厳密に紐づけます。
+              {t('loading.step1Desc')}
             </p>
           </div>
           <div>
-            <div className="text-xs font-mono-tabular text-[#647082] mb-1">02. バックグラウンドシーン検出</div>
+            <div className="text-xs font-mono-tabular text-[#647082] mb-1">{t('loading.step2Title')}</div>
             <p className="text-xs text-[#94A0B2] leading-relaxed">
-              映像と音声の変化から内部シーンリストを自動抽出。マーキングとは独立した参考シーク軸として確認できます。
+              {t('loading.step2Desc')}
             </p>
           </div>
           <div>
-            <div className="text-xs font-mono-tabular text-[#647082] mb-1">03. タイムライン照合＆出力</div>
+            <div className="text-xs font-mono-tabular text-[#647082] mb-1">{t('loading.step3Title')}</div>
             <p className="text-xs text-[#94A0B2] leading-relaxed">
-              タイプA（タイトル一覧）・タイプB（タイムスタンプ付き）の入出力と、縦軸タイムライン上での自由な割当に対応。
+              {t('loading.step3Desc')}
             </p>
           </div>
         </div>
@@ -327,7 +334,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
         {/* Optional quick synthetic sample video button */}
         <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 rounded-lg bg-[#14171C] border border-[#222730]">
           <div className="text-xs text-[#94A0B2]">
-            手元に動画ファイルがない場合は、5シーン構成のテスト用ローカル動画（15秒・音声チャイム付き）をその場で生成して動作を確認できます。
+            {t('loading.sampleDesc')}
           </div>
           <button
             type="button"
@@ -341,12 +348,12 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
             {sampleGenProgress !== null ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                サンプル動画生成中 {sampleGenProgress}%
+                {t('loading.sampleGenerating', { percent: sampleGenProgress })}
               </>
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                サンプル動画で試す
+                {t('loading.sampleTryButton')}
               </>
             )}
           </button>
@@ -354,8 +361,10 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
 
         {metadata && (
           <div className="mt-3 text-xs text-[#647082] font-mono-tabular">
-            前回の読み込み: {metadata.fileName}
-            {metadata.sourceType === 'local' ? ` (${formatFileSize(metadata.fileSize)})` : ' (YouTube)'}
+            {t('loading.previousLoad', { fileName: metadata.fileName })}
+            {metadata.sourceType === 'local'
+              ? ` (${formatFileSize(metadata.fileSize)})`
+              : ` (${t('metadata.youtubeSourceTag')})`}
           </div>
         )}
       </div>

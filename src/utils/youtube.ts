@@ -3,6 +3,17 @@ export interface ParsedYouTubeChapter {
   title: string;
 }
 
+export type YouTubeApiErrorCode =
+  | 'INVALID_YOUTUBE_URL'
+  | 'YOUTUBE_VIDEO_NOT_FOUND'
+  | 'YOUTUBE_LOAD_FAILED';
+
+export type YouTubeApiWarningCode =
+  | 'YOUTUBE_RESTRICTED_WITH_REASON'
+  | 'YOUTUBE_RESTRICTED_PRIVATE'
+  | 'YOUTUBE_DESCRIPTION_FETCH_FAILED'
+  | 'STATIC_SITE_YOUTUBE_FALLBACK';
+
 export interface YouTubeVideoInfoResponse {
   videoId: string;
   url: string;
@@ -18,6 +29,9 @@ export interface YouTubeVideoInfoResponse {
   chapters: ParsedYouTubeChapter[];
   chapterSource: 'description' | 'youtube-chapters' | 'none';
   warning?: string;
+  warningCode?: YouTubeApiWarningCode;
+  warningDetail?: string;
+  isFallbackTitle?: boolean;
 }
 
 const VIDEO_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;

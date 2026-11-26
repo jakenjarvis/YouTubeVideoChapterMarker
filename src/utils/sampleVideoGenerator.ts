@@ -1,7 +1,60 @@
+import { getActiveLocaleMeta, translate } from '../i18n';
+
+/**
+ * Draws text onto a Canvas 2D context with automatic line wrapping so longer languages
+ * (English, German, French, etc.) and CJK strings never clip off the 960x540 slide canvas.
+ */
+function drawWrappedCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number
+): number {
+  const words = text.split(' ');
+  const lines: string[] = [];
+
+  if (words.length > 1) {
+    let currentLine = words[0];
+    for (let i = 1; i < words.length; i++) {
+      const candidate = `${currentLine} ${words[i]}`;
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        currentLine = candidate;
+      } else {
+        lines.push(currentLine);
+        currentLine = words[i];
+      }
+    }
+    lines.push(currentLine);
+  } else {
+    // Character-based fallback for CJK/Thai/long compound words without spaces
+    let currentLine = '';
+    for (const ch of Array.from(text)) {
+      const candidate = currentLine + ch;
+      if (currentLine.length > 0 && ctx.measureText(candidate).width > maxWidth) {
+        lines.push(currentLine);
+        currentLine = ch;
+      } else {
+        currentLine = candidate;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+  }
+
+  const clamped = lines.slice(0, maxLines);
+  clamped.forEach((line, idx) => {
+    ctx.fillText(line, x, y + idx * lineHeight, maxWidth);
+  });
+  return y + clamped.length * lineHeight;
+}
+
 /**
  * Generates a real local multi-scene sample video (WebM with visual slide cuts + WebAudio chimes)
  * in the browser so users can immediately test the entire analysis, scene detection, and chaptering workflow
  * even if they don't have a video file at hand.
+ * Automatically renders slides using the active locale's language, font stack, and text direction.
  */
 export async function generateSampleVideoFile(
   onProgress?: (percent: number) => void
@@ -11,19 +64,24 @@ export async function generateSampleVideoFile(
   const fps = 30;
   const durationSec = 15; // 5 distinct 3-second chapters
 
+  const localeMeta = getActiveLocaleMeta();
+  const isRtl = localeMeta.dir === 'rtl';
+  const textAnchorX = isRtl ? width - 64 : 64;
+  const maxTextWidth = width - 128;
+
   const scenes = [
-    { start: 0, end: 3, bg: '#101828', accent: '#F59E0B', title: '01. アジェンダ', sub: '本日のセッション構成とタイムテーブル', freq: 440 },
-    { start: 3, end: 6, bg: '#1E1B2E', accent: '#38BDF8', title: '02. イベントの主旨について', sub: '制作ワークフローの課題と背景の整理', freq: 523.25 },
-    { start: 6, end: 9, bg: '#0F2622', accent: '#34D399', title: '03. フレーム精度シークの実演', sub: '可変フレームレート対応タイムコード制御', freq: 587.33 },
-    { start: 9, end: 12, bg: '#2A1815', accent: '#FB7185', title: '04. 結局のところ？', sub: 'チャプター編集を最速化する設計ポイント', freq: 659.25 },
-    { start: 12, end: 15, bg: '#151C2C', accent: '#A78BFA', title: '05. 最後に', sub: 'YouTube概要欄フォーマットへの即時出力', freq: 783.99 },
+    { start: 0, end: 3, bg: '#101828', accent: '#F59E0B', title: translate('sampleVideo.scene1Title'), sub: translate('sampleVideo.scene1Sub'), freq: 440 },
+    { start: 3, end: 6, bg: '#1E1B2E', accent: '#38BDF8', title: translate('sampleVideo.scene2Title'), sub: translate('sampleVideo.scene2Sub'), freq: 523.25 },
+    { start: 6, end: 9, bg: '#0F2622', accent: '#34D399', title: translate('sampleVideo.scene3Title'), sub: translate('sampleVideo.scene3Sub'), freq: 587.33 },
+    { start: 9, end: 12, bg: '#2A1815', accent: '#FB7185', title: translate('sampleVideo.scene4Title'), sub: translate('sampleVideo.scene4Sub'), freq: 659.25 },
+    { start: 12, end: 15, bg: '#151C2C', accent: '#A78BFA', title: translate('sampleVideo.scene5Title'), sub: translate('sampleVideo.scene5Sub'), freq: 783.99 },
   ];
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvasが利用できません');
+  if (!ctx) throw new Error(translate('errors.canvasUnavailable'));
 
   const canvasStream = canvas.captureStream(fps);
 
@@ -80,7 +138,7 @@ export async function generateSampleVideoFile(
 
   const recordingDone = new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => resolve(new Blob(chunks, { type: selectedMime || 'video/webm' }));
-    recorder.onerror = () => reject(new Error('サンプル動画の生成に失敗しました'));
+    recorder.onerror = () => reject(new Error(translate('errors.sampleGenFailedShort')));
   });
 
   recorder.start(200);
@@ -115,31 +173,58 @@ export async function generateSampleVideoFile(
 
       // Top accent line
       ctx.fillStyle = scene.accent;
-      ctx.fillRect(64, 72, 96, 6);
+      ctx.fillRect(isRtl ? width - 64 - 96 : 64, 72, 96, 6);
 
-      // Main chapter slide heading
+      // Locale-aware heading & subheading with automatic wrap protection
+      ctx.direction = localeMeta.dir;
+      ctx.textAlign = isRtl ? 'right' : 'left';
+
       ctx.fillStyle = '#F8FAFC';
-      ctx.font = 'bold 52px "Noto Sans JP", sans-serif';
-      ctx.fillText(scene.title, 64, 190);
+      ctx.font = `bold 48px ${localeMeta.canvasFontFamily}`;
+      const afterTitleY = drawWrappedCanvasText(
+        ctx,
+        scene.title,
+        textAnchorX,
+        182,
+        maxTextWidth,
+        58,
+        2
+      );
 
-      // Subheading
       ctx.fillStyle = '#CBD5E1';
-      ctx.font = '26px "Noto Sans JP", sans-serif';
-      ctx.fillText(scene.sub, 64, 248);
+      ctx.font = `25px ${localeMeta.canvasFontFamily}`;
+      drawWrappedCanvasText(
+        ctx,
+        scene.sub,
+        textAnchorX,
+        afterTitleY + 12,
+        maxTextWidth,
+        34,
+        2
+      );
 
-      // Animated progress strip inside current scene
+      // Animated progress strip inside current scene (always LTR time progression)
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.fillRect(64, 320, width - 128, 8);
+      ctx.fillRect(64, 344, width - 128, 8);
       ctx.fillStyle = scene.accent;
-      ctx.fillRect(64, 320, (width - 128) * Math.max(0, Math.min(1, localProgress)), 8);
+      ctx.fillRect(64, 344, (width - 128) * Math.max(0, Math.min(1, localProgress)), 8);
 
-      // Burned-in reference timecode & frame number for visual verification of frame stepping
+      // Burned-in reference timecode & frame number (strictly LTR)
       const secWhole = Math.floor(elapsedSec);
       const msPart = Math.floor((elapsedSec - secWhole) * 1000);
       const tc = `00:00:${String(secWhole).padStart(2, '0')}.${String(msPart).padStart(3, '0')}`;
+      ctx.direction = 'ltr';
+      ctx.textAlign = 'left';
       ctx.fillStyle = '#94A3B8';
       ctx.font = '600 28px "JetBrains Mono", monospace';
-      ctx.fillText(`TC ${tc}   FRAME #${String(frameNum).padStart(4, '0')}`, 64, height - 64);
+      ctx.fillText(
+        translate('sampleVideo.overlayTimecode', {
+          timecode: tc,
+          frame: String(frameNum).padStart(4, '0'),
+        }),
+        64,
+        height - 64
+      );
 
       frameNum++;
       requestAnimationFrame(renderLoop);
@@ -156,7 +241,7 @@ export async function generateSampleVideoFile(
   combinedStream.getTracks().forEach((t) => t.stop());
 
   const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
-  return new File([blob], `sample_chapters_demo.${ext}`, {
+  return new File([blob], translate('sampleVideo.defaultFileName', { ext }), {
     type: selectedMime || 'video/webm',
   });
 }

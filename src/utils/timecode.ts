@@ -1,7 +1,9 @@
 import type { ChapterTitle, FrameMapEntry, Marker } from '../types/video';
+import { formatLocalizedNumber, translate } from '../i18n';
 
 /**
  * Formats seconds as HH:MM:SS (YouTube chapter format).
+ * Always uses strict ASCII Western digits (0-9) so YouTube's chapter parser accepts output in any UI locale.
  * Floors to whole seconds cleanly with tiny epsilon tolerance to avoid 9.9999 -> 00:00:09 drift.
  */
 export function formatTimecodeHMS(seconds: number): string {
@@ -36,13 +38,34 @@ export function splitTimecodeParts(seconds: number): {
 }
 
 /**
- * Formats bytes into human-readable MB / GB.
+ * Formats bytes into human-readable B / KB / MB / GB with locale-aware decimal formatting.
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes < 1024) {
+    return translate('units.bytes', { value: formatLocalizedNumber(Math.round(bytes)) });
+  }
+  if (bytes < 1024 * 1024) {
+    return translate('units.kilobytes', {
+      value: formatLocalizedNumber(bytes / 1024, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
+    });
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return translate('units.megabytes', {
+      value: formatLocalizedNumber(bytes / (1024 * 1024), {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
+    });
+  }
+  return translate('units.gigabytes', {
+    value: formatLocalizedNumber(bytes / (1024 * 1024 * 1024), {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+  });
 }
 
 /**

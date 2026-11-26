@@ -161,9 +161,27 @@ function parseCodecLabel(mimeType: string | undefined, fallback: string): string
   return code;
 }
 
-async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoResponse> {
+class YouTubeApiError extends Error {
+  code: 'INVALID_YOUTUBE_URL' | 'YOUTUBE_VIDEO_NOT_FOUND' | 'YOUTUBE_LOAD_FAILED';
+
+  constructor(
+    code: 'INVALID_YOUTUBE_URL' | 'YOUTUBE_VIDEO_NOT_FOUND' | 'YOUTUBE_LOAD_FAILED',
+    message: string
+  ) {
+    super(message);
+    this.code = code;
+  }
+}
+
+function sanitizeYouTubeHl(raw: string): string {
+  const trimmed = raw.trim();
+  return /^[a-z]{2}(?:-[A-Za-z]{2,4})?$/.test(trimmed) ? trimmed : 'ja';
+}
+
+async function fetchYouTubeVideoInfo(videoId: string, hl = 'ja'): Promise<YouTubeVideoInfoResponse> {
+  const safeHl = sanitizeYouTubeHl(hl);
   // Strictly hardcoded YouTube origin + pre-validated 11-char videoId (prevents SSRF)
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=ja`;
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=${encodeURIComponent(safeHl)}`;
   const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`;
 
   let title = '';
@@ -178,6 +196,8 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
   let chapters: ParsedYouTubeChapter[] = [];
   let chapterSource: YouTubeVideoInfoResponse['chapterSource'] = 'none';
   let warning: string | undefined;
+  let warningCode: YouTubeVideoInfoResponse['warningCode'];
+  let warningDetail: string | undefined;
 
   try {
     const resp = await fetch(watchUrl, {
@@ -186,7 +206,7 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        'Accept-Language': `${safeHl},en-US;q=0.9,en;q=0.8`,
         Cookie: 'CONSENT=YES+cb; SOCS=CAI',
       },
     });
@@ -205,9 +225,14 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
         const status = typeof playability?.status === 'string' ? playability.status : '';
         if (status === 'ERROR' || status === 'LOGIN_REQUIRED') {
           const reason = typeof playability?.reason === 'string' ? playability.reason : '';
-          warning = reason
-            ? `YouTubeの応答制限により一部の詳細を取得できませんでした（${reason}）`
-            : 'この動画は非公開または年齢・ログイン制限により概要欄を取得できませんでした。';
+          if (reason) {
+            warningCode = 'YOUTUBE_RESTRICTED_WITH_REASON';
+            warningDetail = reason;
+            warning = `YouTubeの応答制限により一部の詳細を取得できませんでした（${reason}）`;
+          } else {
+            warningCode = 'YOUTUBE_RESTRICTED_PRIVATE';
+            warning = 'この動画は非公開または年齢・ログイン制限により概要欄を取得できませんでした。';
+          }
         }
 
         const details = playerResp.videoDetails as Record<string, unknown> | undefined;
@@ -283,9 +308,12 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
       // Clear non-actionable gate warning when we successfully obtained description or chapters
       if (warning && (chapters.length > 0 || description.length > 0)) {
         warning = undefined;
+        warningCode = undefined;
+        warningDetail = undefined;
       }
     }
   } catch {
+    warningCode = 'YOUTUBE_DESCRIPTION_FETCH_FAILED';
     warning = 'YouTubeページからの概要欄取得に失敗したため、基本情報のみで読み込みます。';
   }
 
@@ -301,16 +329,21 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
         if (typeof oembed.title === 'string') title = oembed.title;
         if (typeof oembed.author_name === 'string') author = oembed.author_name;
       } else if (oembedResp.status === 404 || oembedResp.status === 400) {
-        throw new Error('指定されたYouTube動画が見つかりませんでした。URLをご確認ください。');
+        throw new YouTubeApiError(
+          'YOUTUBE_VIDEO_NOT_FOUND',
+          '指定されたYouTube動画が見つかりませんでした。URLをご確認ください。'
+        );
       }
     } catch (err) {
-      if (err instanceof Error && err.message.includes('見つかりませんでした')) {
+      if (err instanceof YouTubeApiError) {
         throw err;
       }
     }
   }
 
+  let isFallbackTitle = false;
   if (!title) {
+    isFallbackTitle = true;
     title = `YouTube Video (${videoId})`;
   }
 
@@ -329,6 +362,9 @@ async function fetchYouTubeVideoInfo(videoId: string): Promise<YouTubeVideoInfoR
     chapters,
     chapterSource,
     warning,
+    warningCode,
+    warningDetail,
+    isFallbackTitle,
   };
 }
 
@@ -338,21 +374,25 @@ async function startServer() {
   // Read-only YouTube metadata & description chapter extraction endpoint
   app.get('/api/youtube/info', async (req, res) => {
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
+    const rawHl = typeof req.query.hl === 'string' ? req.query.hl : 'ja';
     const videoId = extractYouTubeVideoId(rawUrl);
     if (!videoId) {
       res.status(400).json({
+        errorCode: 'INVALID_YOUTUBE_URL',
         error: '有効なYouTubeのURLまたは動画IDを入力してください（例: https://www.youtube.com/watch?v=...）。',
       });
       return;
     }
 
     try {
-      const info = await fetchYouTubeVideoInfo(videoId);
+      const info = await fetchYouTubeVideoInfo(videoId, rawHl);
       res.json(info);
     } catch (err) {
+      const errorCode =
+        err instanceof YouTubeApiError ? err.code : 'YOUTUBE_LOAD_FAILED';
       const message =
         err instanceof Error ? err.message : 'YouTube動画の読み込み中にエラーが発生しました。';
-      res.status(502).json({ error: message });
+      res.status(502).json({ errorCode, error: message });
     }
   });
 

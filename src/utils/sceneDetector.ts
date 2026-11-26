@@ -1,5 +1,6 @@
 import type { FrameMapEntry, InternalScene, SceneReason } from '../types/video';
 import { createId, findFrameIndexByTime } from './timecode';
+import { translate } from '../i18n';
 
 interface AudioEnvelope {
   windowSec: number;
@@ -223,7 +224,7 @@ export async function detectInternalScenesInBackground(
       const onErr = () => {
         video.removeEventListener('loadeddata', onLoaded);
         video.removeEventListener('error', onErr);
-        reject(new Error('シーン解析用ビデオの読み込みに失敗しました'));
+        reject(new Error(translate('errors.sceneVideoLoadFailed')));
       };
       video.addEventListener('loadeddata', onLoaded, { once: true });
       video.addEventListener('error', onErr, { once: true });
@@ -249,7 +250,7 @@ export async function detectInternalScenesInBackground(
     canvas.height = sampleH;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
-      throw new Error('Canvasコンテキストの初期化に失敗しました');
+      throw new Error(translate('errors.sceneCanvasInitFailed'));
     }
 
     const effectiveDuration = Math.max(0.1, durationSec || video.duration || 0);
@@ -411,7 +412,7 @@ export async function detectInternalScenesInBackground(
   } catch (err) {
     cleanup();
     if (!signal.aborted) {
-      callbacks.onError(err instanceof Error ? err.message : 'シーン検出中にエラーが発生しました');
+      callbacks.onError(err instanceof Error ? err.message : translate('errors.sceneDetectGenericError'));
     }
   }
 }

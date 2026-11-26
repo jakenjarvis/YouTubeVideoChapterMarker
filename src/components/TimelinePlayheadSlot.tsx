@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
+import { useI18n } from '../i18n';
 
 export type PlayheadSlot =
   | { kind: 'none' }
@@ -98,6 +99,7 @@ export const TimelinePlayheadGap: React.FC<TimelinePlayheadGapProps> = ({
   playbackMode,
   accent,
 }) => {
+  const { t } = useI18n();
   if (!active) {
     return <div className="h-2.5 shrink-0" aria-hidden="true" />;
   }
@@ -117,9 +119,10 @@ export const TimelinePlayheadGap: React.FC<TimelinePlayheadGapProps> = ({
 
   return (
     <div
+      dir="ltr"
       className="h-2.5 shrink-0 relative flex items-center px-1 overflow-visible select-none"
       role="status"
-      aria-label={`現在位置 ${formatTimecodeHMS(currentTimeSec)}`}
+      aria-label={t('playhead.currentPositionAria', { timecode: formatTimecodeHMS(currentTimeSec) })}
     >
       <span
         aria-hidden="true"

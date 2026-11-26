@@ -1,47 +1,59 @@
 import React from 'react';
 import { Keyboard, X } from 'lucide-react';
+import { useI18n, type TranslationKey } from '../i18n';
 
 interface ShortcutHelpModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const SHORTCUT_GROUPS = [
+interface ShortcutItemDef {
+  keysKey: TranslationKey;
+  descKey: TranslationKey;
+}
+
+interface ShortcutGroupDef {
+  titleKey: TranslationKey;
+  items: ShortcutItemDef[];
+}
+
+const SHORTCUT_GROUPS: ShortcutGroupDef[] = [
   {
-    title: '再生・停止',
+    titleKey: 'shortcuts.groupPlayback',
     items: [
-      { keys: 'Space / K', desc: '再生 / 停止（トグル）' },
-      { keys: 'L', desc: '順方向再生' },
-      { keys: 'J', desc: '逆方向再生' },
+      { keysKey: 'shortcuts.keySpaceOrK', descKey: 'shortcuts.playPauseToggle' },
+      { keysKey: 'shortcuts.keyL', descKey: 'shortcuts.playForward' },
+      { keysKey: 'shortcuts.keyJ', descKey: 'shortcuts.playReverse' },
     ],
   },
   {
-    title: 'フレーム送り・スキップ',
+    titleKey: 'shortcuts.groupFrameStep',
     items: [
-      { keys: '← / → または , / .', desc: '1フレーム逆送り / 順送り' },
-      { keys: 'Shift + ← / →', desc: '10フレームスキップ' },
-      { keys: 'Ctrl (Cmd) + ← / →', desc: '30フレームスキップ' },
+      { keysKey: 'shortcuts.step1FrameKeys', descKey: 'shortcuts.step1FrameDesc' },
+      { keysKey: 'shortcuts.keyShiftArrows', descKey: 'shortcuts.step10FramesDesc' },
+      { keysKey: 'shortcuts.keyCtrlCmdArrows', descKey: 'shortcuts.step30FramesDesc' },
     ],
   },
   {
-    title: '秒スキップ',
+    titleKey: 'shortcuts.groupSecondSkip',
     items: [
-      { keys: 'A / D', desc: '1秒スキップ（-1s / +1s）' },
-      { keys: 'Shift + A / D', desc: '10秒スキップ（-10s / +10s）' },
-      { keys: '[ / ]', desc: '15秒スキップ（-15s / +15s）' },
+      { keysKey: 'shortcuts.keyAD', descKey: 'shortcuts.skip1SecDesc' },
+      { keysKey: 'shortcuts.keyShiftAD', descKey: 'shortcuts.skip10SecDesc' },
+      { keysKey: 'shortcuts.keyBrackets', descKey: 'shortcuts.skip15SecDesc' },
     ],
   },
   {
-    title: 'マーキング・シーク移動',
+    titleKey: 'shortcuts.groupMarking',
     items: [
-      { keys: 'M', desc: '現在フレームにマーカー追加' },
-      { keys: 'P / N', desc: '前 / 次のマーカーへ移動' },
-      { keys: 'Shift + P / N', desc: '前 / 次の内部シーン（参考）へ移動' },
+      { keysKey: 'shortcuts.keyM', descKey: 'shortcuts.addMarkerDesc' },
+      { keysKey: 'shortcuts.keyPN', descKey: 'shortcuts.jumpMarkerDesc' },
+      { keysKey: 'shortcuts.keyShiftPN', descKey: 'shortcuts.jumpSceneDesc' },
     ],
   },
 ];
 
 export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useI18n();
   if (!isOpen) return null;
 
   return (
@@ -60,13 +72,13 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
           <div className="flex items-center gap-2.5">
             <Keyboard className="w-4 h-4 text-amber-400" />
             <h2 id="shortcut-help-title" className="text-base font-semibold text-[#F3F5F8]">
-              キーボードショートカット一覧
+              {t('shortcuts.modalTitle')}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="閉じる"
+            aria-label={t('common.close')}
             className="p-1.5 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#222834] rounded-md transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -75,19 +87,22 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
           {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.title} className="space-y-2.5">
-              <h3 className="text-xs font-semibold text-amber-400">{group.title}</h3>
+            <div key={group.titleKey} className="space-y-2.5">
+              <h3 className="text-xs font-semibold text-amber-400">{t(group.titleKey)}</h3>
               <div className="space-y-2">
                 {group.items.map((item) => (
-                  <div
-                    key={item.keys}
-                    className="flex items-center justify-between gap-2 text-xs border-b border-[#1E232C] pb-1.5"
-                  >
-                    <span className="text-[#CBD5E1]">{item.desc}</span>
-                    <kbd className="font-mono-tabular text-[11px] px-1.5 py-0.5 rounded bg-[#0D0F12] border border-[#2C3340] text-[#F3F5F8] whitespace-nowrap shrink-0">
-                      {item.keys}
-                    </kbd>
-                  </div>
+                    <div
+                      key={item.descKey}
+                      className="flex items-center justify-between gap-2 text-xs border-b border-[#1E232C] pb-1.5"
+                    >
+                      <span className="text-[#CBD5E1]">{t(item.descKey)}</span>
+                      <kbd
+                        dir="ltr"
+                        className="font-mono-tabular text-[11px] px-1.5 py-0.5 rounded bg-[#0D0F12] border border-[#2C3340] text-[#F3F5F8] whitespace-nowrap shrink-0"
+                      >
+                        {t(item.keysKey)}
+                      </kbd>
+                    </div>
                 ))}
               </div>
             </div>

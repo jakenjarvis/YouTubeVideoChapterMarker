@@ -32,6 +32,7 @@ export interface VideoMetadata {
   youtubeAuthor?: string;
   youtubeDescription?: string;
   youtubeChapterSource?: 'description' | 'youtube-chapters' | 'none';
+  youtubeTitleIsFallback?: boolean;
 }
 
 export interface FrameMapEntry {

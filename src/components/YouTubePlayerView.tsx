@@ -1,5 +1,6 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { translate, useI18n } from '../i18n';
 
 export interface YouTubePlayerController {
   play: () => void;
@@ -74,7 +75,7 @@ function loadYouTubeIframeApi(): Promise<YTNamespace> {
       if (window.YT) {
         resolve(window.YT);
       } else {
-        reject(new Error('YouTube Player APIの初期化に失敗しました。'));
+        reject(new Error(translate('youtubePlayer.apiInitFailed')));
       }
     };
 
@@ -84,7 +85,7 @@ function loadYouTubeIframeApi(): Promise<YTNamespace> {
       script.async = true;
       script.onerror = () => {
         ytApiPromise = null;
-        reject(new Error('YouTube Player APIの読み込みに失敗しました。ネットワーク接続をご確認ください。'));
+        reject(new Error(translate('youtubePlayer.apiLoadFailed')));
       };
       document.head.appendChild(script);
     }
@@ -117,6 +118,7 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
   onReady,
   onPlaybackStateChange,
 }) => {
+  const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const readyRef = useRef(false);
@@ -278,13 +280,11 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
               if (cancelled) return;
               setIsLoading(false);
               if (event.data === 101 || event.data === 150) {
-                setPlayerError(
-                  'この動画は投稿者の設定により埋め込み再生が制限されています（概要欄のチャプター編集・出力は引き続き利用できます）。'
-                );
+                setPlayerError(translate('youtubePlayer.embedRestricted'));
               } else if (event.data === 100) {
-                setPlayerError('この動画は削除されたか、非公開のため再生できません。');
+                setPlayerError(translate('youtubePlayer.videoUnavailable'));
               } else {
-                setPlayerError('YouTubeプレーヤーの読み込みでエラーが発生しました。');
+                setPlayerError(translate('youtubePlayer.playerGenericError'));
               }
             },
           },
@@ -295,7 +295,7 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
       .catch((err) => {
         if (cancelled) return;
         setIsLoading(false);
-        setPlayerError(err instanceof Error ? err.message : 'YouTubeプレーヤーの初期化に失敗しました。');
+        setPlayerError(err instanceof Error ? err.message : translate('youtubePlayer.playerInitFailed'));
       });
 
     return () => {
@@ -320,7 +320,7 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 pointer-events-none">
           <div className="flex items-center gap-2 text-xs text-[#CBD5E1]">
             <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-            <span>YouTubeプレーヤーを読み込み中...</span>
+            <span>{t('youtubePlayer.loadingPlayer')}</span>
           </div>
         </div>
       )}
