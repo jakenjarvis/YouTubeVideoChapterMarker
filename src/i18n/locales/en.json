@@ -41,7 +41,7 @@
     "versionLabel": "Ver {{version}}",
     "openAnotherVideo": "Open Video",
     "loadYouTube": "YouTube",
-    "importTitles": "Import Titles",
+    "importTitles": "Import Text",
     "shortcuts": "Shortcuts",
     "importExportText": "Import / Export",
     "openVideo": "Open Video",
@@ -103,7 +103,7 @@
     "step2Title": "02. Background Scene Detection",
     "step2Desc": "Automatically extracts internal scene cuts from visual and audio shifts as a separate reference axis.",
     "step3Title": "03. Timeline Matching & Export",
-    "step3Desc": "Supports Type A (titles only) and Type B (timestamped) import/export with drag-and-drop timeline matching.",
+    "step3Desc": "Paste mixed timestamped chapters or plain title lists line by line, match freely on the timeline, and export in your preferred format.",
     "sampleDesc": "No video file on hand? Generate a 15-second, 5-scene test video with audio chimes right in your browser to try the full workflow.",
     "sampleGenerating": "Generating sample {{percent}}%",
     "sampleTryButton": "Try Sample Video",
@@ -231,14 +231,21 @@
   },
   "importExport": {
     "modalTitle": "Chapter Text Import / Export",
-    "tabExportB": "Export (Type B)",
-    "tabImportA": "Import Type A (Titles)",
-    "tabImportB": "Import Type B (Timed)",
-    "typeAPlaceholder": "Agenda\nEvent Purpose\nKey Takeaways\nWrap-Up",
-    "typeBPlaceholder": "00:00:00 Agenda\n00:10:04 Event Purpose\n00:25:12 Key Takeaways\n00:32:05 Wrap-Up",
-    "exportFormatPrefix": "YouTube description format (",
-    "exportFormatExample": "00:00:00 Chapter Title",
-    "exportFormatSuffix": ")",
+    "tabExport": "Export",
+    "tabImport": "Import",
+    "timeFormatLabel": "Time Format",
+    "timeFormatAuto": "Auto",
+    "timeFormatAutoHint": "Uses 00:00 under 1 hour, 00:00:00 at 1 hour or longer",
+    "layoutLabel": "Layout & Separator",
+    "layoutTimeSpaceTitle": "00:00 Title (YouTube recommended)",
+    "layoutTimeDashTitle": "00:00 - Title",
+    "layoutTitleSpaceTime": "Title 00:00",
+    "layoutTitleDashTime": "Title - 00:00",
+    "layoutNonYouTubeChapterNote": "Title-first formats do not create YouTube seekbar chapters (timestamps still work as clickable jump links).",
+    "ytCheckReady": "Meets YouTube chapter requirements",
+    "ytCheckNeedsZero": "Must start at 0:00",
+    "ytCheckNeedsThree": "Needs at least 3 chapters",
+    "ytCheckNeedsTenSec": "Contains interval under 10s",
     "includeUntitledLabel": "Include untitled markers",
     "exportPlaceholder": "Assign chapter titles to markers to generate ready-to-paste YouTube description text here.",
     "outputLineCount": {
@@ -250,26 +257,26 @@
     "downloadTxt": "Save .txt",
     "copied": "Copied",
     "copyToClipboard": "Copy to Clipboard",
-    "importADesc": "Enter or paste one chapter title per line. Imported titles can be dragged and dropped or moved onto markers on the timeline.",
+    "importDesc": "Each line is detected automatically. Mix timed chapters (00:00 Title, 00:00 - Title, Title 00:00), timestamp-only lines, and title-only lines freely.",
+    "importPlaceholder": "00:00 Intro\n04:56 Main Topic\nTitle-only line (added as unassigned)\n00:38:22\n01:12:00 Wrap-Up",
+    "detectedSummaryPrefix": "Detected:",
+    "detectedChaptersCount": {
+      "one": "{{count}} chapter",
+      "other": "{{count}} chapters"
+    },
+    "detectedMarkersOnlyCount": {
+      "one": "{{count}} timestamp only",
+      "other": "{{count}} timestamps only"
+    },
+    "detectedTitlesOnlyCount": {
+      "one": "{{count}} title only",
+      "other": "{{count}} titles only"
+    },
+    "includeTitleOnlyLinesLabel": "Also import text-only lines as unassigned titles",
     "autoAssignEmptyLabel": "Auto-assign top-down to empty markers",
     "replaceExistingTitlesLabel": "Replace existing titles",
-    "detectedTitlesCount": {
-      "one": "Detected: {{count}} title",
-      "other": "Detected: {{count}} titles"
-    },
-    "importAButton": "Import Type A ({{count}})",
-    "importBDescPart1": "Paste text in \"",
-    "importBDescExample": "00:00:00 Title",
-    "importBDescPart2": "\" format (",
-    "importBDescMmSs": "MM:SS",
-    "importBDescPart3": " also supported) to register both markers and chapter titles snapped to the frame map.",
-    "skippedLinesWarning": "Lines not matching a timestamp format will be skipped (lines: {{lines}})",
-    "replaceExistingMarkersLabel": "Replace existing markers and titles",
-    "validChaptersCount": {
-      "one": "Valid: {{count}} chapter",
-      "other": "Valid: {{count}} chapters"
-    },
-    "importBButton": "Import Type B ({{count}})"
+    "replaceExistingAllLabel": "Replace existing markers and titles",
+    "importButton": "Import ({{count}})"
   },
   "youtubeModal": {
     "modalTitle": "Load YouTube URL & Inspect Description",
@@ -356,7 +363,7 @@
     "youtubeLoadGenericError": "An error occurred while loading the YouTube video.",
     "youtubeInfoFetchFailed": "Failed to fetch YouTube video information.",
     "youtubeLoadFailed": "Failed to load the YouTube video.",
-    "staticSiteYouTubeWarning": "Automatic YouTube description fetching is unavailable on static hosting. You can still play and mark the video, or paste description chapters via Import / Export → Import Type B."
+    "staticSiteYouTubeWarning": "Automatic YouTube description fetching is unavailable on static hosting. You can still play and mark the video, or paste description chapters via Import / Export → Import."
   },
   "notices": {
     "chapterSourceDescription": "the description",

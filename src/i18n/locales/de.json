@@ -41,7 +41,7 @@
     "versionLabel": "Ver {{version}}",
     "openAnotherVideo": "Video öffnen",
     "loadYouTube": "YouTube",
-    "importTitles": "Titel importieren",
+    "importTitles": "Text importieren",
     "shortcuts": "Shortcuts",
     "importExportText": "Import / Export",
     "openVideo": "Video öffnen",
@@ -103,7 +103,7 @@
     "step2Title": "02. Szenenerkennung im Hintergrund",
     "step2Desc": "Erkennt Bild- und Tonwechsel automatisch als separate Referenzachse – völlig unabhängig von deinen Markern.",
     "step3Title": "03. Timeline-Zuordnung & Export",
-    "step3Desc": "Unterstützt Typ A (nur Titel) und Typ B (mit Zeitstempeln) beim Import/Export sowie Drag & Drop auf der Timeline.",
+    "step3Desc": "Importiere gemischte Zeitstempel- und Titellisten zeilenweise, ordne sie frei auf der Timeline zu und exportiere im gewünschten Format.",
     "sampleDesc": "Keine Videodatei zur Hand? Erzeuge direkt im Browser ein 15-sekündiges Beispielvideo mit 5 Szenen und Signalton zum Ausprobieren.",
     "sampleGenerating": "Beispielvideo wird erstellt {{percent}}%",
     "sampleTryButton": "Mit Beispielvideo testen",
@@ -231,14 +231,21 @@
   },
   "importExport": {
     "modalTitle": "Kapiteltext Import / Export",
-    "tabExportB": "Export (Typ B)",
-    "tabImportA": "Import Typ A (Titel)",
-    "tabImportB": "Import Typ B (Mit Zeit)",
-    "typeAPlaceholder": "Agenda\nZiel des Events\nWichtigste Erkenntnisse\nAbschluss",
-    "typeBPlaceholder": "00:00:00 Agenda\n00:10:04 Ziel des Events\n00:25:12 Wichtigste Erkenntnisse\n00:32:05 Abschluss",
-    "exportFormatPrefix": "YouTube-Beschreibungsformat (",
-    "exportFormatExample": "00:00:00 Kapiteltitel",
-    "exportFormatSuffix": ")",
+    "tabExport": "Export",
+    "tabImport": "Import",
+    "timeFormatLabel": "Zeitformat",
+    "timeFormatAuto": "Auto",
+    "timeFormatAutoHint": "Unter 1 Std. 00:00 · ab 1 Std. 00:00:00",
+    "layoutLabel": "Format & Trennzeichen",
+    "layoutTimeSpaceTitle": "00:00 Titel (YouTube-Empfehlung)",
+    "layoutTimeDashTitle": "00:00 - Titel",
+    "layoutTitleSpaceTime": "Titel 00:00",
+    "layoutTitleDashTime": "Titel - 00:00",
+    "layoutNonYouTubeChapterNote": "Formate mit vorangestelltem Titel erzeugen keine YouTube-Fortschrittsbalken-Kapitel (Zeitstempel bleiben anklickbare Sprunglinks).",
+    "ytCheckReady": "Erfüllt die YouTube-Kapitelregeln",
+    "ytCheckNeedsZero": "Muss bei 0:00 beginnen",
+    "ytCheckNeedsThree": "Mindestens 3 Kapitel nötig",
+    "ytCheckNeedsTenSec": "Abstand unter 10 Sek.",
     "includeUntitledLabel": "Marker ohne Titel einschließen",
     "exportPlaceholder": "Weise Markern Kapiteltitel zu, um hier den fertigen Text für deine YouTube-Beschreibung zu erzeugen.",
     "outputLineCount": {
@@ -250,26 +257,26 @@
     "downloadTxt": ".txt speichern",
     "copied": "Kopiert",
     "copyToClipboard": "In Zwischenablage kopieren",
-    "importADesc": "Gib einen Kapiteltitel pro Zeile ein oder füge ihn ein. Importierte Titel lassen sich per Drag & Drop auf Marker der Timeline ziehen.",
+    "importDesc": "Jede Zeile wird automatisch erkannt. Mische Kapitel mit Zeitstempel (00:00 Titel, 00:00 - Titel, Titel 00:00), reine Zeitstempel und reine Titel nach Belieben.",
+    "importPlaceholder": "00:00 Intro\n04:56 Hauptteil\nNur-Titel-Zeile (wird unzugeordnet hinzugefügt)\n00:38:22\n01:12:00 Fazit",
+    "detectedSummaryPrefix": "Erkannt:",
+    "detectedChaptersCount": {
+      "one": "{{count}} Kapitel",
+      "other": "{{count}} Kapitel"
+    },
+    "detectedMarkersOnlyCount": {
+      "one": "{{count}} nur Zeitstempel",
+      "other": "{{count}} nur Zeitstempel"
+    },
+    "detectedTitlesOnlyCount": {
+      "one": "{{count}} nur Titel",
+      "other": "{{count}} nur Titel"
+    },
+    "includeTitleOnlyLinesLabel": "Zeilen ohne Zeitstempel als unzugeordnete Titel übernehmen",
     "autoAssignEmptyLabel": "Von oben nach unten automatisch leeren Markern zuweisen",
     "replaceExistingTitlesLabel": "Vorhandene Titel ersetzen",
-    "detectedTitlesCount": {
-      "one": "Erkannt: {{count}} Titel",
-      "other": "Erkannt: {{count}} Titel"
-    },
-    "importAButton": "Typ A importieren ({{count}})",
-    "importBDescPart1": "Füge Text im Format „",
-    "importBDescExample": "00:00:00 Titel",
-    "importBDescPart2": "“ ein (",
-    "importBDescMmSs": "MM:SS",
-    "importBDescPart3": " ebenfalls unterstützt), um Marker und Kapiteltitel direkt an der Frame-Tabelle ausgerichtet zu übernehmen.",
-    "skippedLinesWarning": "Zeilen ohne gültigen Zeitstempel werden übersprungen (Zeilen: {{lines}})",
-    "replaceExistingMarkersLabel": "Vorhandene Marker und Titel ersetzen",
-    "validChaptersCount": {
-      "one": "Gültig: {{count}} Kapitel",
-      "other": "Gültig: {{count}} Kapitel"
-    },
-    "importBButton": "Typ B importieren ({{count}})"
+    "replaceExistingAllLabel": "Vorhandene Marker und Titel ersetzen",
+    "importButton": "Importieren ({{count}})"
   },
   "youtubeModal": {
     "modalTitle": "YouTube-URL laden & Beschreibung prüfen",
@@ -356,7 +363,7 @@
     "youtubeLoadGenericError": "Fehler beim Laden des YouTube-Videos.",
     "youtubeInfoFetchFailed": "YouTube-Videoinformationen konnten nicht abgerufen werden.",
     "youtubeLoadFailed": "YouTube-Video konnte nicht geladen werden.",
-    "staticSiteYouTubeWarning": "Automatisches Auslesen der YouTube-Beschreibung ist auf statischem Hosting nicht verfügbar. Du kannst das Video trotzdem abspielen und markieren oder Kapitel über Import / Export → Import Typ B einfügen."
+    "staticSiteYouTubeWarning": "Automatisches Auslesen der YouTube-Beschreibung ist auf statischem Hosting nicht verfügbar. Du kannst das Video trotzdem abspielen und markieren oder Kapitel über Import / Export → Import einfügen."
   },
   "notices": {
     "chapterSourceDescription": "der Beschreibung",

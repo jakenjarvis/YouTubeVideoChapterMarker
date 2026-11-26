@@ -99,8 +99,80 @@ export function findFrameIndexByTime(frames: FrameMapEntry[], timeSec: number): 
   return diffHi <= diffLo ? hi : lo;
 }
 
+export type ExportTimeFormat = 'auto' | 'm:ss' | 'mm:ss' | 'hh:mm:ss';
+
+export type ExportLineLayout =
+  | 'time-space-title'
+  | 'time-dash-title'
+  | 'title-space-time'
+  | 'title-dash-time';
+
+export interface ChapterExportOptions {
+  timeFormat: ExportTimeFormat;
+  layout: ExportLineLayout;
+  includeUntitledMarkers?: boolean;
+  videoDurationSec?: number;
+}
+
+export type ParsedChapterLineKind = 'chapter' | 'marker-only' | 'title-only';
+
+export interface ParsedChapterLine {
+  lineNumber: number;
+  kind: ParsedChapterLineKind;
+  timeSec: number | null;
+  title: string;
+}
+
+export interface UnifiedChapterImportParseResult {
+  lines: ParsedChapterLine[];
+  chapterCount: number;
+  markerOnlyCount: number;
+  titleOnlyCount: number;
+}
+
+export interface YouTubeChapterValidation {
+  isTitleFirstLayout: boolean;
+  chapterCount: number;
+  startsAtZero: boolean;
+  hasMinimumCount: boolean;
+  hasMinimumIntervals: boolean;
+  isValid: boolean;
+}
+
 /**
- * Parses a timestamp token such as "00:10:04", "0:10:04", "10:04", or "00:10:04.250" into seconds.
+ * Formats seconds according to the selected export time format using strict ASCII digits (0-9).
+ * When `useHours` is true (for 'auto' when video/max >= 1h) or when the timestamp itself >= 1h,
+ * hours are always preserved so timestamps never overflow 59:59.
+ */
+export function formatTimecodeByStyle(
+  seconds: number,
+  style: ExportTimeFormat,
+  useHoursForAuto = false
+): string {
+  const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+  const totalSec = Math.floor(safe + 1e-4);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const ss = String(s).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  const hh = String(h).padStart(2, '0');
+
+  if (style === 'hh:mm:ss') {
+    return `${hh}:${mm}:${ss}`;
+  }
+  if (style === 'm:ss') {
+    return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+  }
+  if (style === 'mm:ss') {
+    return h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+  // 'auto'
+  return useHoursForAuto || h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/**
+ * Parses a timestamp token such as "00:10:04", "0:10:04", "10:04", "0:00", or "00:10:04.250" into seconds.
  * Returns null if invalid.
  */
 export function parseTimestampToSeconds(token: string): number | null {
@@ -123,61 +195,149 @@ export function parseTimestampToSeconds(token: string): number | null {
   return null;
 }
 
-/**
- * Type A parser: Chapter titles list (one title per non-empty line).
- */
-export function parseTypeAText(raw: string): string[] {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
-export interface ParsedTypeBEntry {
-  timeSec: number;
-  title: string;
-}
+const MATCHING_CLOSING_BRACKET: Record<string, string> = {
+  '[': ']',
+  '(': ')',
+  '【': '】',
+  '『': '』',
+  '「': '」',
+};
 
 /**
- * Type B parser: Timestamped chapter titles list ("00:00:00 アジェンダ" or "10:04 タイトル").
+ * Parses a single non-empty line into a timed chapter, marker-only timestamp, or title-only entry.
+ * Preserves brackets/parentheses inside titles (e.g. "ドットーレの地下室(21) プレイ[J]").
  */
-export function parseTypeBText(raw: string): {
-  entries: ParsedTypeBEntry[];
-  skippedLines: number[];
-} {
-  const lines = raw.split(/\r?\n/);
-  const entries: ParsedTypeBEntry[] = [];
-  const skippedLines: number[] = [];
+export function parseSingleChapterLine(
+  rawLine: string,
+  lineNumber: number
+): ParsedChapterLine | null {
+  const line = rawLine.trim();
+  if (!line) return null;
 
-  lines.forEach((rawLine, idx) => {
-    const line = rawLine.trim();
-    if (!line) return;
-    // Match leading timestamp separated by whitespace, full-width space, tab, or hyphen
-    const match = /^(\d{1,3}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)(?:[\s\u3000\-\–\—]+(.*))?$/.exec(line);
-    if (!match) {
-      skippedLines.push(idx + 1);
-      return;
+  // 1. Leading timestamp: optional bullet/index, optional wrapping bracket, timestamp, optional range end, title
+  const leadingRe =
+    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?(.*)$/;
+  const leadMatch = leadingRe.exec(line);
+  if (leadMatch) {
+    const openBr = leadMatch[1] ?? '';
+    const timeToken = leadMatch[2];
+    const closeBr = leadMatch[3] ?? '';
+    let rest = leadMatch[4] ?? '';
+
+    const bracketsValid =
+      (!openBr && !closeBr) ||
+      (Boolean(openBr) && closeBr === MATCHING_CLOSING_BRACKET[openBr]);
+
+    // If unbracketed, require end-of-line or explicit separator so e.g. "12:00のニュース" stays title-only
+    const hasValidBoundary =
+      Boolean(openBr) ||
+      rest.length === 0 ||
+      /^[\s\u3000\-–—:：|｜/・•·>＞~〜～]/.test(rest);
+
+    if (bracketsValid && hasValidBoundary) {
+      const timeSec = parseTimestampToSeconds(timeToken);
+      if (timeSec !== null) {
+        // Handle optional range end timestamp: e.g. "00:00 - 01:30 Title" -> take start time
+        const rangeMatch =
+          /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?(.*)$/.exec(
+            rest
+          );
+        if (rangeMatch) {
+          const rOpen = rangeMatch[1] ?? '';
+          const rClose = rangeMatch[3] ?? '';
+          const rRest = rangeMatch[4] ?? '';
+          const rBracketsValid =
+            (!rOpen && !rClose) ||
+            (Boolean(rOpen) && rClose === MATCHING_CLOSING_BRACKET[rOpen]);
+          const rBoundaryValid =
+            Boolean(rOpen) ||
+            rRest.length === 0 ||
+            /^[\s\u3000\-–—:：|｜/・•·>＞]/.test(rRest);
+          if (rBracketsValid && rBoundaryValid && parseTimestampToSeconds(rangeMatch[2]) !== null) {
+            rest = rRest;
+          }
+        }
+
+        const title = rest.replace(/^[\s\u3000\-–—:：|｜/・•·>＞]+/, '').trim();
+        return {
+          lineNumber,
+          kind: title.length > 0 ? 'chapter' : 'marker-only',
+          timeSec,
+          title,
+        };
+      }
     }
-    const timeSec = parseTimestampToSeconds(match[1]);
-    if (timeSec === null) {
-      skippedLines.push(idx + 1);
-      return;
+  }
+
+  // 2. Trailing timestamp: e.g. "Intro 00:00", "Intro - 04:56", "Intro (01:47:50)", "Intro [00:30]"
+  if (!/^https?:\/\//i.test(line)) {
+    const trailingRe =
+      /^(.+?)[\s\u3000\-–—|｜:：]+(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?$/;
+    const trailMatch = trailingRe.exec(line);
+    if (trailMatch && !/https?:\/\//i.test(trailMatch[1])) {
+      const rawTitle = trailMatch[1];
+      const openBr = trailMatch[2] ?? '';
+      const timeToken = trailMatch[3];
+      const closeBr = trailMatch[4] ?? '';
+      const bracketsValid =
+        (!openBr && !closeBr) ||
+        (Boolean(openBr) && closeBr === MATCHING_CLOSING_BRACKET[openBr]);
+      if (bracketsValid) {
+        const timeSec = parseTimestampToSeconds(timeToken);
+        if (timeSec !== null) {
+          const title = rawTitle.replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+          if (title.length > 0) {
+            return {
+              lineNumber,
+              kind: 'chapter',
+              timeSec,
+              title,
+            };
+          }
+        }
+      }
     }
-    const title = (match[2] ?? '').trim();
-    entries.push({ timeSec, title });
+  }
+
+  // 3. Title-only line (no timestamp)
+  return {
+    lineNumber,
+    kind: 'title-only',
+    timeSec: null,
+    title: line,
+  };
+}
+
+/**
+ * Line-by-line unified chapter text parser.
+ * Handles mixed inputs containing timed chapters, timestamp-only markers, and title-only lines.
+ */
+export function parseChapterTextLines(raw: string): UnifiedChapterImportParseResult {
+  const rawLines = raw.split(/\r?\n/);
+  const lines: ParsedChapterLine[] = [];
+  let chapterCount = 0;
+  let markerOnlyCount = 0;
+  let titleOnlyCount = 0;
+
+  rawLines.forEach((rawLine, idx) => {
+    const parsed = parseSingleChapterLine(rawLine, idx + 1);
+    if (!parsed) return;
+    lines.push(parsed);
+    if (parsed.kind === 'chapter') chapterCount++;
+    else if (parsed.kind === 'marker-only') markerOnlyCount++;
+    else titleOnlyCount++;
   });
 
-  return { entries, skippedLines };
+  return { lines, chapterCount, markerOnlyCount, titleOnlyCount };
 }
 
 /**
- * Type B exporter: Generates YouTube chapter format "00:00:00 {ChapterName}" sorted chronologically.
- * Includes only markers that have a non-empty assigned chapter title.
+ * Formats assigned (and optionally untitled) markers into chapter text using the chosen style & layout.
  */
-export function exportTypeBText(
+export function exportChapterText(
   markers: Marker[],
   titles: ChapterTitle[],
-  includeUntitleMarkers = false
+  options: ChapterExportOptions
 ): string {
   const sortedMarkers = [...markers].sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex);
   const titleByMarkerId = new Map<string, ChapterTitle>();
@@ -187,16 +347,91 @@ export function exportTypeBText(
     }
   }
 
-  const rows: string[] = [];
+  const items: Array<{ timeSec: number; title: string }> = [];
   for (const marker of sortedMarkers) {
     const assigned = titleByMarkerId.get(marker.id);
-    if (assigned && assigned.text.trim().length > 0) {
-      rows.push(`${formatTimecodeHMS(marker.timeSec)} ${assigned.text.trim()}`);
-    } else if (includeUntitleMarkers) {
-      rows.push(`${formatTimecodeHMS(marker.timeSec)} `);
+    const cleanTitle = assigned ? assigned.text.trim() : '';
+    if (cleanTitle.length > 0) {
+      items.push({ timeSec: marker.timeSec, title: cleanTitle });
+    } else if (options.includeUntitledMarkers) {
+      items.push({ timeSec: marker.timeSec, title: '' });
     }
   }
-  return rows.join('\n');
+
+  if (items.length === 0) return '';
+
+  const maxItemSec = items.reduce((acc, item) => Math.max(acc, item.timeSec), 0);
+  const maxReferenceSec = Math.max(options.videoDurationSec ?? 0, maxItemSec);
+  const useHoursForAuto = maxReferenceSec >= 3600;
+
+  return items
+    .map(({ timeSec, title }) => {
+      const tc = formatTimecodeByStyle(timeSec, options.timeFormat, useHoursForAuto);
+      if (!title) {
+        return tc;
+      }
+      switch (options.layout) {
+        case 'time-dash-title':
+          return `${tc} - ${title}`;
+        case 'title-space-time':
+          return `${title} ${tc}`;
+        case 'title-dash-time':
+          return `${title} - ${tc}`;
+        case 'time-space-title':
+        default:
+          return `${tc} ${title}`;
+      }
+    })
+    .join('\n');
+}
+
+/**
+ * Checks whether the current exported chapter list satisfies YouTube's official Video Chapters rules.
+ */
+export function validateYouTubeChapters(
+  markers: Marker[],
+  titles: ChapterTitle[],
+  options: ChapterExportOptions
+): YouTubeChapterValidation {
+  const isTitleFirstLayout =
+    options.layout === 'title-space-time' || options.layout === 'title-dash-time';
+
+  const sortedMarkers = [...markers].sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex);
+  const titleByMarkerId = new Map<string, ChapterTitle>();
+  for (const t of titles) {
+    if (t.assignedMarkerId) {
+      titleByMarkerId.set(t.assignedMarkerId, t);
+    }
+  }
+
+  const secondsList: number[] = [];
+  for (const marker of sortedMarkers) {
+    const assigned = titleByMarkerId.get(marker.id);
+    const hasTitle = Boolean(assigned && assigned.text.trim().length > 0);
+    if (hasTitle || options.includeUntitledMarkers) {
+      secondsList.push(Math.floor(Math.max(0, marker.timeSec) + 1e-4));
+    }
+  }
+
+  const chapterCount = secondsList.length;
+  const startsAtZero = chapterCount > 0 && secondsList[0] === 0;
+  const hasMinimumCount = chapterCount >= 3;
+  let hasMinimumIntervals = chapterCount > 0;
+  for (let i = 1; i < secondsList.length; i++) {
+    if (secondsList[i] - secondsList[i - 1] < 10) {
+      hasMinimumIntervals = false;
+      break;
+    }
+  }
+
+  return {
+    isTitleFirstLayout,
+    chapterCount,
+    startsAtZero,
+    hasMinimumCount,
+    hasMinimumIntervals,
+    isValid: !isTitleFirstLayout && startsAtZero && hasMinimumCount && hasMinimumIntervals,
+  };
 }
 
 export function createId(prefix: string): string {

@@ -41,7 +41,7 @@
     "versionLabel": "Ver {{version}}",
     "openAnotherVideo": "Ouvrir vidéo",
     "loadYouTube": "YouTube",
-    "importTitles": "Importer titres",
+    "importTitles": "Importer texte",
     "shortcuts": "Raccourcis",
     "importExportText": "Importer / Exporter",
     "openVideo": "Ouvrir vidéo",
@@ -84,7 +84,7 @@
     "threeSecRuleRemaining": "{{seconds}} s",
     "threeSecRuleSuffix": ").",
     "skipToEdit": "Éditer maintenant",
-    "introHeading": "Créons les chapitres de votre vidéo\u00A0!",
+    "introHeading": "Créons les chapitres de votre vidéo !",
     "introDescPrefix": "Déposez un fichier vidéo ou collez une URL YouTube pour marquer vos scènes à l'image près. Modifiez des chapitres existants ou générez une liste propre (",
     "introDescFormatExample": "00:00:00 Titre",
     "introDescSuffix": ") prête à coller sur YouTube.",
@@ -103,7 +103,7 @@
     "step2Title": "02. Détection de scènes",
     "step2Desc": "Détecte automatiquement les coupes visuelles et variations audio en arrière-plan comme repères indépendants.",
     "step3Title": "03. Timeline & export",
-    "step3Desc": "Prend en charge les formats Type A (titres seuls) et Type B (horodatés) avec attribution par glisser-déposer.",
+    "step3Desc": "Collez librement des lignes horodatées ou de simples titres, associez-les sur la timeline et exportez dans le format de votre choix.",
     "sampleDesc": "Pas de vidéo sous la main ? Générez directement dans le navigateur une vidéo de test de 15 secondes (5 scènes avec son) pour découvrir l'outil.",
     "sampleGenerating": "Génération de l'exemple {{percent}} %",
     "sampleTryButton": "Essayer la vidéo d'exemple",
@@ -231,14 +231,21 @@
   },
   "importExport": {
     "modalTitle": "Importer / Exporter le texte des chapitres",
-    "tabExportB": "Exporter (Type B)",
-    "tabImportA": "Importer Type A (Titres)",
-    "tabImportB": "Importer Type B (Horodaté)",
-    "typeAPlaceholder": "Ordre du jour\nObjectif de l'événement\nPoints clés\nConclusion",
-    "typeBPlaceholder": "00:00:00 Ordre du jour\n00:10:04 Objectif de l'événement\n00:25:12 Points clés\n00:32:05 Conclusion",
-    "exportFormatPrefix": "Format de description YouTube (",
-    "exportFormatExample": "00:00:00 Titre du chapitre",
-    "exportFormatSuffix": ")",
+    "tabExport": "Exporter",
+    "tabImport": "Importer",
+    "timeFormatLabel": "Format horaire",
+    "timeFormatAuto": "Auto",
+    "timeFormatAutoHint": "00:00 sous 1 h · 00:00:00 à partir de 1 h",
+    "layoutLabel": "Disposition et séparateur",
+    "layoutTimeSpaceTitle": "00:00 Titre (recommandé YouTube)",
+    "layoutTimeDashTitle": "00:00 - Titre",
+    "layoutTitleSpaceTime": "Titre 00:00",
+    "layoutTitleDashTime": "Titre - 00:00",
+    "layoutNonYouTubeChapterNote": "Les formats avec le titre en premier ne créent pas de chapitres sur la barre YouTube (les repères restent cliquables).",
+    "ytCheckReady": "Conforme aux règles de chapitres YouTube",
+    "ytCheckNeedsZero": "Doit commencer à 0:00",
+    "ytCheckNeedsThree": "3 chapitres minimum requis",
+    "ytCheckNeedsTenSec": "Intervalle inférieur à 10 s",
     "includeUntitledLabel": "Inclure les marqueurs sans titre",
     "exportPlaceholder": "Assignez des titres à vos marqueurs pour générer ici le texte prêt à coller dans la description YouTube.",
     "outputLineCount": {
@@ -250,26 +257,29 @@
     "downloadTxt": "Enregistrer .txt",
     "copied": "Copié",
     "copyToClipboard": "Copier dans le presse-papiers",
-    "importADesc": "Saisissez ou collez un titre de chapitre par ligne. Les titres importés peuvent ensuite être glissés ou déplacés sur les marqueurs de la timeline.",
+    "importDesc": "Chaque ligne est analysée automatiquement. Mélangez librement chapitres horodatés (00:00 Titre, 00:00 - Titre, Titre 00:00), lignes d'horodatage seul et lignes de titre seul.",
+    "importPlaceholder": "00:00 Introduction\n04:56 Sujet principal\nLigne de titre seul (ajoutée non assignée)\n00:38:22\n01:12:00 Conclusion",
+    "detectedSummaryPrefix": "Détecté :",
+    "detectedChaptersCount": {
+      "zero": "{{count}} chapitre",
+      "one": "{{count}} chapitre",
+      "other": "{{count}} chapitres"
+    },
+    "detectedMarkersOnlyCount": {
+      "zero": "{{count}} repère seul",
+      "one": "{{count}} repère seul",
+      "other": "{{count}} repères seuls"
+    },
+    "detectedTitlesOnlyCount": {
+      "zero": "{{count}} titre seul",
+      "one": "{{count}} titre seul",
+      "other": "{{count}} titres seuls"
+    },
+    "includeTitleOnlyLinesLabel": "Importer aussi les lignes sans horodatage comme titres non assignés",
     "autoAssignEmptyLabel": "Auto-assigner de haut en bas aux marqueurs vides",
     "replaceExistingTitlesLabel": "Remplacer les titres existants",
-    "detectedTitlesCount": {
-      "one": "Détecté : {{count}} titre",
-      "other": "Détectés : {{count}} titres"
-    },
-    "importAButton": "Importer Type A ({{count}})",
-    "importBDescPart1": "Collez un texte au format « ",
-    "importBDescExample": "00:00:00 Titre",
-    "importBDescPart2": " » (format ",
-    "importBDescMmSs": "MM:SS",
-    "importBDescPart3": " également pris en charge) pour créer les marqueurs et titres calés sur l'index d'images.",
-    "skippedLinesWarning": "Les lignes sans horodatage valide seront ignorées (lignes : {{lines}})",
-    "replaceExistingMarkersLabel": "Remplacer les marqueurs et titres existants",
-    "validChaptersCount": {
-      "one": "Valide : {{count}} chapitre",
-      "other": "Valides : {{count}} chapitres"
-    },
-    "importBButton": "Importer Type B ({{count}})"
+    "replaceExistingAllLabel": "Remplacer les marqueurs et titres existants",
+    "importButton": "Importer ({{count}})"
   },
   "youtubeModal": {
     "modalTitle": "Charger une URL YouTube & voir la description",
@@ -356,7 +366,7 @@
     "youtubeLoadGenericError": "Une erreur est survenue lors du chargement de la vidéo YouTube.",
     "youtubeInfoFetchFailed": "Impossible de récupérer les informations de la vidéo YouTube.",
     "youtubeLoadFailed": "Impossible de charger la vidéo YouTube.",
-    "staticSiteYouTubeWarning": "La récupération automatique de la description YouTube n'est pas disponible sur un hébergement statique. Vous pouvez lire et marquer la vidéo normalement, ou coller les chapitres via Importer / Exporter → Importer Type B."
+    "staticSiteYouTubeWarning": "La récupération automatique de la description YouTube n'est pas disponible sur un hébergement statique. Vous pouvez lire et marquer la vidéo normalement, ou coller les chapitres via Importer / Exporter → Importer."
   },
   "notices": {
     "chapterSourceDescription": "la description",

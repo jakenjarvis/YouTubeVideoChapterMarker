@@ -118,17 +118,18 @@ function parseTimestampToken(token: string): number | null {
   return null;
 }
 
-function cleanChapterTitle(raw: string): string {
-  return raw
-    .replace(/^[\s\u3000\-–—:：|｜/・•·>＞]+/, '')
-    .replace(/[\s\u3000\-–—:：|｜]+$/, '')
-    .trim();
-}
+const MATCHING_BRACKET_END: Record<string, string> = {
+  '[': ']',
+  '(': ')',
+  '【': '】',
+  '『': '』',
+  '「': '」',
+};
 
 /**
  * Extracts timestamped chapter entries from a YouTube video description.
- * Supports leading timestamps ("00:00:00 Title", "0:00 - Title", "[00:00] Title", "【00:00】Title")
- * as well as trailing timestamps ("Title 00:00", "Title (00:00)").
+ * Supports leading timestamps ("00:00:00 Title", "0:00 - Title", "1. 0:00 Title", "0:00 - 1:30 Title", "[00:00] Title", "【00:00】Title")
+ * as well as trailing timestamps ("Title 00:00", "Title - 00:00", "Title (00:00)").
  */
 export function parseChaptersFromDescription(
   description: string,
@@ -140,18 +141,15 @@ export function parseChaptersFromDescription(
   const extracted: ParsedYouTubeChapter[] = [];
   const seenSeconds = new Set<number>();
 
-  // Leading timestamp pattern: optional bracket/bullet, HH:MM:SS or MM:SS, optional closing bracket, title
   const leadingRe =
-    /^(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*)?(?:[\[(【『「]\s*)?(\d{1,2}:[0-5]\d(?::[0-5]\d)?)(?:\s*[\])】』」])?(?:[\s\u3000\-–—:：|｜/]+(.*))?$/;
+    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?(.*)$/;
 
-  // Trailing timestamp pattern: "Title 00:10" or "Title (00:10:05)"
   const trailingRe =
-    /^(.+?)[\s\u3000\-–—|｜]+(?:[\[(【]\s*)?(\d{1,2}:[0-5]\d(?::[0-5]\d)?)(?:\s*[\])】])?$/;
+    /^(.+?)[\s\u3000\-–—|｜:：]+(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?$/;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    // Skip pure URL lines
     if (/^https?:\/\//i.test(line)) continue;
 
     let timeSec: number | null = null;
@@ -159,13 +157,60 @@ export function parseChaptersFromDescription(
 
     const leadMatch = leadingRe.exec(line);
     if (leadMatch) {
-      timeSec = parseTimestampToken(leadMatch[1]);
-      title = cleanChapterTitle(leadMatch[2] ?? '');
-    } else {
+      const openBr = leadMatch[1] ?? '';
+      const closeBr = leadMatch[3] ?? '';
+      let rest = leadMatch[4] ?? '';
+      const bracketsValid =
+        (!openBr && !closeBr) ||
+        (Boolean(openBr) && closeBr === MATCHING_BRACKET_END[openBr]);
+      const hasValidBoundary =
+        Boolean(openBr) ||
+        rest.length === 0 ||
+        /^[\s\u3000\-–—:：|｜/・•·>＞~〜～]/.test(rest);
+
+      if (bracketsValid && hasValidBoundary) {
+        const parsed = parseTimestampToken(leadMatch[2]);
+        if (parsed !== null) {
+          const rangeMatch =
+            /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?(.*)$/.exec(
+              rest
+            );
+          if (rangeMatch) {
+            const rOpen = rangeMatch[1] ?? '';
+            const rClose = rangeMatch[3] ?? '';
+            const rRest = rangeMatch[4] ?? '';
+            const rBracketsValid =
+              (!rOpen && !rClose) ||
+              (Boolean(rOpen) && rClose === MATCHING_BRACKET_END[rOpen]);
+            const rBoundaryValid =
+              Boolean(rOpen) ||
+              rRest.length === 0 ||
+              /^[\s\u3000\-–—:：|｜/・•·>＞]/.test(rRest);
+            if (rBracketsValid && rBoundaryValid && parseTimestampToken(rangeMatch[2]) !== null) {
+              rest = rRest;
+            }
+          }
+          timeSec = parsed;
+          title = rest.replace(/^[\s\u3000\-–—:：|｜/・•·>＞]+/, '').trim();
+        }
+      }
+    }
+
+    if (timeSec === null) {
       const trailMatch = trailingRe.exec(line);
       if (trailMatch && !/https?:\/\//i.test(trailMatch[1])) {
-        timeSec = parseTimestampToken(trailMatch[2]);
-        title = cleanChapterTitle(trailMatch[1]);
+        const openBr = trailMatch[2] ?? '';
+        const closeBr = trailMatch[4] ?? '';
+        const bracketsValid =
+          (!openBr && !closeBr) ||
+          (Boolean(openBr) && closeBr === MATCHING_BRACKET_END[openBr]);
+        if (bracketsValid) {
+          const parsed = parseTimestampToken(trailMatch[3]);
+          if (parsed !== null) {
+            timeSec = parsed;
+            title = trailMatch[1].replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+          }
+        }
       }
     }
 

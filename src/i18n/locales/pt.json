@@ -41,7 +41,7 @@
     "versionLabel": "Ver {{version}}",
     "openAnotherVideo": "Abrir vídeo",
     "loadYouTube": "YouTube",
-    "importTitles": "Importar títulos",
+    "importTitles": "Importar texto",
     "shortcuts": "Atalhos",
     "importExportText": "Importar / Exportar",
     "openVideo": "Abrir vídeo",
@@ -105,7 +105,7 @@
     "step2Title": "02. Detecção de cenas",
     "step2Desc": "Detecta cortes visuais e mudanças de áudio em segundo plano como eixo de referência independente dos seus marcadores.",
     "step3Title": "03. Linha do tempo e exportação",
-    "step3Desc": "Suporta entrada/saída Tipo A (só títulos) e Tipo B (com timestamps) com associação por arrastar e soltar.",
+    "step3Desc": "Cole linhas misturadas de capítulos com tempo ou só títulos, vincule livremente na linha do tempo e exporte no formato desejado.",
     "sampleDesc": "Sem um vídeo à mão? Gere no próprio navegador um vídeo de teste de 15 segundos com 5 cenas e áudio para experimentar todo o fluxo.",
     "sampleGenerating": "Gerando exemplo {{percent}}%",
     "sampleTryButton": "Testar vídeo de exemplo",
@@ -235,14 +235,21 @@
   },
   "importExport": {
     "modalTitle": "Importar / Exportar texto de capítulos",
-    "tabExportB": "Exportar (Tipo B)",
-    "tabImportA": "Importar Tipo A (Títulos)",
-    "tabImportB": "Importar Tipo B (Com tempo)",
-    "typeAPlaceholder": "Agenda\nObjetivo do evento\nPrincipais pontos\nEncerramento",
-    "typeBPlaceholder": "00:00:00 Agenda\n00:10:04 Objetivo do evento\n00:25:12 Principais pontos\n00:32:05 Encerramento",
-    "exportFormatPrefix": "Formato de descrição do YouTube (",
-    "exportFormatExample": "00:00:00 Título do capítulo",
-    "exportFormatSuffix": ")",
+    "tabExport": "Exportar",
+    "tabImport": "Importar",
+    "timeFormatLabel": "Formato de tempo",
+    "timeFormatAuto": "Auto",
+    "timeFormatAutoHint": "00:00 abaixo de 1 h · 00:00:00 a partir de 1 h",
+    "layoutLabel": "Ordem e separador",
+    "layoutTimeSpaceTitle": "00:00 Título (recomendado no YouTube)",
+    "layoutTimeDashTitle": "00:00 - Título",
+    "layoutTitleSpaceTime": "Título 00:00",
+    "layoutTitleDashTime": "Título - 00:00",
+    "layoutNonYouTubeChapterNote": "Formatos com título primeiro não criam capítulos na barra do YouTube (os tempos ainda funcionam como links clicáveis).",
+    "ytCheckReady": "Atende aos requisitos de capítulos do YouTube",
+    "ytCheckNeedsZero": "Deve começar em 0:00",
+    "ytCheckNeedsThree": "Mínimo de 3 capítulos",
+    "ytCheckNeedsTenSec": "Há intervalo menor que 10 s",
     "includeUntitledLabel": "Incluir marcadores sem título",
     "exportPlaceholder": "Vincule títulos aos marcadores para gerar aqui o texto pronto para colar na descrição do YouTube.",
     "outputLineCount": {
@@ -255,28 +262,29 @@
     "downloadTxt": "Salvar .txt",
     "copied": "Copiado",
     "copyToClipboard": "Copiar para área de transferência",
-    "importADesc": "Digite ou cole um título de capítulo por linha. Os títulos importados podem ser arrastados ou vinculados livremente aos marcadores na linha do tempo.",
+    "importDesc": "Cada linha é reconhecida automaticamente. Misture livremente capítulos com tempo (00:00 Título, 00:00 - Título, Título 00:00), linhas só com tempo e linhas só com título.",
+    "importPlaceholder": "00:00 Introdução\n04:56 Tema principal\nLinha só com título (adicionada sem vínculo)\n00:38:22\n01:12:00 Encerramento",
+    "detectedSummaryPrefix": "Detectado:",
+    "detectedChaptersCount": {
+      "zero": "{{count}} capítulos",
+      "one": "{{count}} capítulo",
+      "other": "{{count}} capítulos"
+    },
+    "detectedMarkersOnlyCount": {
+      "zero": "{{count}} só tempo",
+      "one": "{{count}} só tempo",
+      "other": "{{count}} só tempo"
+    },
+    "detectedTitlesOnlyCount": {
+      "zero": "{{count}} só título",
+      "one": "{{count}} só título",
+      "other": "{{count}} só título"
+    },
+    "includeTitleOnlyLinesLabel": "Importar também linhas sem tempo como títulos sem vínculo",
     "autoAssignEmptyLabel": "Auto-vincular de cima para baixo aos marcadores vazios",
     "replaceExistingTitlesLabel": "Substituir títulos existentes",
-    "detectedTitlesCount": {
-      "zero": "Detectados: {{count}} títulos",
-      "one": "Detectado: {{count}} título",
-      "other": "Detectados: {{count}} títulos"
-    },
-    "importAButton": "Importar Tipo A ({{count}})",
-    "importBDescPart1": "Cole texto no formato «",
-    "importBDescExample": "00:00:00 Título",
-    "importBDescPart2": "» (também aceita ",
-    "importBDescMmSs": "MM:SS",
-    "importBDescPart3": ") para cadastrar marcadores e títulos ajustados ao mapa de quadros.",
-    "skippedLinesWarning": "Linhas sem timestamp válido serão ignoradas (linhas: {{lines}})",
-    "replaceExistingMarkersLabel": "Substituir marcadores e títulos existentes",
-    "validChaptersCount": {
-      "zero": "Válidos: {{count}} capítulos",
-      "one": "Válido: {{count}} capítulo",
-      "other": "Válidos: {{count}} capítulos"
-    },
-    "importBButton": "Importar Tipo B ({{count}})"
+    "replaceExistingAllLabel": "Substituir marcadores e títulos existentes",
+    "importButton": "Importar ({{count}})"
   },
   "youtubeModal": {
     "modalTitle": "Carregar URL do YouTube e ver descrição",
@@ -366,7 +374,7 @@
     "youtubeLoadGenericError": "Ocorreu um erro ao carregar o vídeo do YouTube.",
     "youtubeInfoFetchFailed": "Falha ao obter informações do vídeo do YouTube.",
     "youtubeLoadFailed": "Falha ao carregar o vídeo do YouTube.",
-    "staticSiteYouTubeWarning": "A busca automática da descrição do YouTube não está disponível em hospedagem estática. Você ainda pode reproduzir e marcar o vídeo, ou colar os capítulos em Importar / Exportar → Importar Tipo B."
+    "staticSiteYouTubeWarning": "A busca automática da descrição do YouTube não está disponível em hospedagem estática. Você ainda pode reproduzir e marcar o vídeo, ou colar os capítulos em Importar / Exportar → Importar."
   },
   "notices": {
     "chapterSourceDescription": "da descrição",

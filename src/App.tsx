@@ -29,7 +29,7 @@ import { generateSampleVideoFile } from './utils/sampleVideoGenerator';
 import {
   createId,
   findFrameIndexByTime,
-  type ParsedTypeBEntry,
+  type ParsedChapterLine,
 } from './utils/timecode';
 import {
   extractYouTubeVideoId,
@@ -44,7 +44,11 @@ import { TimecodeDisplay } from './components/TimecodeDisplay';
 import { TransportControls } from './components/TransportControls';
 import { ChapterTimelinePanel } from './components/ChapterTimelinePanel';
 import { InternalScenePanel } from './components/InternalScenePanel';
-import { ImportExportModal } from './components/ImportExportModal';
+import {
+  ImportExportModal,
+  type ImportExportModalTab,
+  type UnifiedImportOptions,
+} from './components/ImportExportModal';
 import { ShortcutHelpModal } from './components/ShortcutHelpModal';
 import {
   YouTubePlayerView,
@@ -199,7 +203,7 @@ export default function App() {
   const workspaceRef = useRef<HTMLElement | null>(null);
 
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [importExportInitialTab, setImportExportInitialTab] = useState<'importA' | 'importB' | 'exportB'>('exportB');
+  const [importExportInitialTab, setImportExportInitialTab] = useState<ImportExportModalTab>('export');
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
 
   const hiddenFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1369,62 +1373,30 @@ export default function App() {
     });
   }, [sortedMarkers]);
 
-  // --- Type A & Type B Text Import Handlers ---
-  const handleImportTypeA = useCallback(
-    (titleLines: string[], replaceExisting: boolean, autoAssign: boolean) => {
-      setTitles((prev) => {
-        const base = replaceExisting ? [] : prev;
-        const occupied = new Set(
-          base.filter((t) => t.assignedMarkerId !== null).map((t) => t.assignedMarkerId!)
-        );
-        const emptyMarkers = autoAssign
-          ? sortedMarkers.filter((m) => !occupied.has(m.id))
-          : [];
-        let emptyCursor = 0;
-        let nextOrder = base.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0) + 1;
-
-        const added: ChapterTitle[] = titleLines.map((text) => {
-          if (emptyCursor < emptyMarkers.length) {
-            const targetMarker = emptyMarkers[emptyCursor++];
-            return {
-              id: createId('ch'),
-              text,
-              assignedMarkerId: targetMarker.id,
-              unassignedOrder: 0,
-            };
-          }
-          return {
-            id: createId('ch'),
-            text,
-            assignedMarkerId: null,
-            unassignedOrder: nextOrder++,
-          };
-        });
-
-        return [...base, ...added];
-      });
-      setRightTab('chapters');
-    },
-    [sortedMarkers]
-  );
-
-  const handleImportTypeB = useCallback(
-    (entries: ParsedTypeBEntry[], replaceExisting: boolean) => {
+  // --- Unified Line-by-Line Chapter / Title / Marker Import Handler ---
+  const handleImportUnifiedLines = useCallback(
+    (lines: ParsedChapterLine[], options: UnifiedImportOptions) => {
       const frames = frameMapRef.current;
       const duration = metadata?.durationSec ?? 0;
 
-      const nextMarkers: Marker[] = replaceExisting ? [] : [...markers];
-      const nextTitles: ChapterTitle[] = replaceExisting ? [] : [...titles];
+      const replaceAll = options.replaceExisting && options.replaceMode === 'all';
+      const replaceTitlesOnly = options.replaceExisting && options.replaceMode === 'titles-only';
 
-      for (const entry of entries) {
-        const clampedSec = duration > 0 ? Math.max(0, Math.min(duration, entry.timeSec)) : Math.max(0, entry.timeSec);
+      const nextMarkers: Marker[] = replaceAll ? [] : [...markers];
+      const nextTitles: ChapterTitle[] = replaceAll || replaceTitlesOnly ? [] : [...titles];
+
+      // Pass 1: Process timestamped lines (timed chapters & timestamp-only markers)
+      for (const line of lines) {
+        if (line.timeSec === null) continue;
+
+        const clampedSec =
+          duration > 0 ? Math.max(0, Math.min(duration, line.timeSec)) : Math.max(0, line.timeSec);
         const snappedIdx =
           frames.length > 0 ? findFrameIndexByTime(frames, clampedSec) : Math.round(clampedSec * 30);
         const frameEntry = frames[snappedIdx];
         const finalFrameIdx = frameEntry ? frameEntry.frameIndex : snappedIdx;
         const finalTimeSec = frameEntry ? frameEntry.timeSec : clampedSec;
 
-        // Reuse existing marker if within 0.5s or exact frame
         let marker = nextMarkers.find(
           (m) => m.frameIndex === finalFrameIdx || Math.abs(m.timeSec - finalTimeSec) < 0.35
         );
@@ -1437,17 +1409,17 @@ export default function App() {
           nextMarkers.push(marker);
         }
 
-        if (entry.title.length > 0) {
+        if (line.title.length > 0) {
           const existingTitleIdx = nextTitles.findIndex((t) => t.assignedMarkerId === marker!.id);
           if (existingTitleIdx >= 0) {
             nextTitles[existingTitleIdx] = {
               ...nextTitles[existingTitleIdx],
-              text: entry.title,
+              text: line.title,
             };
           } else {
             nextTitles.push({
               id: createId('ch'),
-              text: entry.title,
+              text: line.title,
               assignedMarkerId: marker.id,
               unassignedOrder: 0,
             });
@@ -1455,9 +1427,43 @@ export default function App() {
         }
       }
 
+      // Pass 2: Process title-only lines (auto-assign to empty markers or add to unassigned pool)
+      const titleOnlyLines = lines.filter((line) => line.kind === 'title-only' && line.title.length > 0);
+      if (titleOnlyLines.length > 0) {
+        const occupied = new Set(
+          nextTitles.filter((t) => t.assignedMarkerId !== null).map((t) => t.assignedMarkerId!)
+        );
+        const emptyMarkers = options.autoAssignTitles
+          ? [...nextMarkers]
+              .sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex)
+              .filter((m) => !occupied.has(m.id))
+          : [];
+        let emptyCursor = 0;
+        let nextOrder = nextTitles.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0) + 1;
+
+        for (const line of titleOnlyLines) {
+          if (emptyCursor < emptyMarkers.length) {
+            const targetMarker = emptyMarkers[emptyCursor++];
+            nextTitles.push({
+              id: createId('ch'),
+              text: line.title,
+              assignedMarkerId: targetMarker.id,
+              unassignedOrder: 0,
+            });
+          } else {
+            nextTitles.push({
+              id: createId('ch'),
+              text: line.title,
+              assignedMarkerId: null,
+              unassignedOrder: nextOrder++,
+            });
+          }
+        }
+      }
+
       setMarkers(nextMarkers);
       setTitles(nextTitles);
-      if (replaceExisting) {
+      if (replaceAll) {
         setLastSelectedMarkerId(null);
       }
       setRightTab('chapters');
@@ -1471,12 +1477,22 @@ export default function App() {
       if (!desc) return;
       const chapters = parseChaptersFromDescription(desc, metadata?.durationSec || undefined);
       if (chapters.length === 0) return;
-      handleImportTypeB(chapters, replaceExisting);
+      const parsedLines: ParsedChapterLine[] = chapters.map((ch, idx) => ({
+        lineNumber: idx + 1,
+        kind: ch.title.length > 0 ? 'chapter' : 'marker-only',
+        timeSec: ch.timeSec,
+        title: ch.title,
+      }));
+      handleImportUnifiedLines(parsedLines, {
+        replaceExisting,
+        replaceMode: 'all',
+        autoAssignTitles: false,
+      });
       setStatusNotice(
         translatePlural('notices.youtubeChaptersReimported', chapters.length)
       );
     },
-    [handleImportTypeB, metadata?.durationSec, metadata?.youtubeDescription]
+    [handleImportUnifiedLines, metadata?.durationSec, metadata?.youtubeDescription]
   );
 
   // --- Separate Axis Selection & Jump Navigation ---
@@ -1738,7 +1754,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setImportExportInitialTab('importA');
+                  setImportExportInitialTab('import');
                   setIsImportExportOpen(true);
                 }}
                 className="hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -1764,7 +1780,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                setImportExportInitialTab('exportB');
+                setImportExportInitialTab('export');
                 setIsImportExportOpen(true);
               }}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -2048,7 +2064,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Copy-Paste Text Import (Type A / Type B) & Export (Type B) Popup */}
+      {/* Copy-Paste Text Import & Customizable Format Export Popup */}
       <ImportExportModal
         key={`${isImportExportOpen}-${importExportInitialTab}`}
         isOpen={isImportExportOpen}
@@ -2056,9 +2072,9 @@ export default function App() {
         markers={sortedMarkers}
         titles={titles}
         fileName={metadata?.fileName}
+        videoDurationSec={metadata?.durationSec}
         onClose={() => setIsImportExportOpen(false)}
-        onImportTypeA={handleImportTypeA}
-        onImportTypeB={handleImportTypeB}
+        onImportLines={handleImportUnifiedLines}
       />
 
       {/* YouTube URL Loader & Read-Only Description Viewer Popup */}
