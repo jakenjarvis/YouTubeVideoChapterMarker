@@ -63,14 +63,15 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
   const handleCopy = async () => {
     if (!exportedText) return;
+    const textToCopy = exportedText.endsWith('\n') ? exportedText : `${exportedText}\n`;
     try {
-      await navigator.clipboard.writeText(exportedText);
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
       // Fallback via hidden textarea selection
       const ta = document.createElement('textarea');
-      ta.value = exportedText;
+      ta.value = textToCopy;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');

@@ -124,6 +124,8 @@ export default function App() {
   // Markers & Chapter Titles (1-to-1 optional; supports untitled markers & unassigned titles)
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [titles, setTitles] = useState<ChapterTitle[]>([]);
+  const [lastSelectedMarkerId, setLastSelectedMarkerId] = useState<string | null>(null);
+  const [lastSelectedSceneId, setLastSelectedSceneId] = useState<string | null>(null);
 
   // Right Panel Tab, Resizable Width & Modals
   const [rightTab, setRightTab] = useState<RightPanelTab>('chapters');
@@ -578,6 +580,8 @@ export default function App() {
     setInternalScenes([]);
     setMarkers([]);
     setTitles([]);
+    setLastSelectedMarkerId(null);
+    setLastSelectedSceneId(null);
     setCurrentFrameIndex(0);
     setCurrentTimeSec(0);
     setPlaybackMode('paused');
@@ -899,6 +903,8 @@ export default function App() {
 
         setMarkers(loadedMarkers);
         setTitles(loadedTitles);
+        setLastSelectedMarkerId(null);
+        setLastSelectedSceneId(null);
         setRightTab('chapters');
         setIsYouTubeModalOpen(false);
         setAppMode('edit');
@@ -1015,17 +1021,25 @@ export default function App() {
     const frameIndex = entry ? entry.frameIndex : currentFrameIndex;
     const timeSec = entry ? entry.timeSec : currentTimeSec;
 
+    const existing = markers.find((m) => m.frameIndex === frameIndex);
+    if (existing) {
+      setLastSelectedMarkerId(existing.id);
+      return;
+    }
+
+    const newId = createId('mk');
     setMarkers((prev) => {
-      // Avoid duplicate marker on the exact same frame
       if (prev.some((m) => m.frameIndex === frameIndex)) {
         return prev;
       }
-      return [...prev, { id: createId('mk'), frameIndex, timeSec }];
+      return [...prev, { id: newId, frameIndex, timeSec }];
     });
-  }, [currentFrameIndex, currentTimeSec]);
+    setLastSelectedMarkerId(newId);
+  }, [currentFrameIndex, currentTimeSec, markers]);
 
   const deleteMarker = useCallback((markerId: string) => {
     setMarkers((prev) => prev.filter((m) => m.id !== markerId));
+    setLastSelectedMarkerId((prev) => (prev === markerId ? null : prev));
     // Detach any title assigned to this marker so user's text isn't silently destroyed
     setTitles((prev) => {
       const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
@@ -1297,6 +1311,9 @@ export default function App() {
 
       setMarkers(nextMarkers);
       setTitles(nextTitles);
+      if (replaceExisting) {
+        setLastSelectedMarkerId(null);
+      }
       setRightTab('chapters');
     },
     [markers, metadata?.durationSec, titles]
@@ -1314,22 +1331,39 @@ export default function App() {
     [handleImportTypeB, metadata?.durationSec, metadata?.youtubeDescription]
   );
 
-  // --- Separate Axis Jump Navigation ---
+  // --- Separate Axis Selection & Jump Navigation ---
+  const handleSelectMarker = useCallback(
+    (markerId: string, frameIndex: number) => {
+      setLastSelectedMarkerId(markerId);
+      seekToFrameIndex(frameIndex, false);
+    },
+    [seekToFrameIndex]
+  );
+
+  const handleSelectScene = useCallback(
+    (sceneId: string, frameIndex: number) => {
+      setLastSelectedSceneId(sceneId);
+      seekToFrameIndex(frameIndex, false);
+    },
+    [seekToFrameIndex]
+  );
+
   const jumpPrevMarker = useCallback(() => {
     if (sortedMarkers.length === 0) return;
     const prev = [...sortedMarkers]
       .reverse()
       .find((m) => m.frameIndex < currentFrameIndex - 1);
-    seekToFrameIndex(prev ? prev.frameIndex : sortedMarkers[0].frameIndex, false);
+    const target = prev ?? sortedMarkers[0];
+    setLastSelectedMarkerId(target.id);
+    seekToFrameIndex(target.frameIndex, false);
   }, [currentFrameIndex, seekToFrameIndex, sortedMarkers]);
 
   const jumpNextMarker = useCallback(() => {
     if (sortedMarkers.length === 0) return;
     const next = sortedMarkers.find((m) => m.frameIndex > currentFrameIndex + 1);
-    seekToFrameIndex(
-      next ? next.frameIndex : sortedMarkers[sortedMarkers.length - 1].frameIndex,
-      false
-    );
+    const target = next ?? sortedMarkers[sortedMarkers.length - 1];
+    setLastSelectedMarkerId(target.id);
+    seekToFrameIndex(target.frameIndex, false);
   }, [currentFrameIndex, seekToFrameIndex, sortedMarkers]);
 
   const jumpPrevScene = useCallback(() => {
@@ -1337,16 +1371,17 @@ export default function App() {
     const prev = [...internalScenes]
       .reverse()
       .find((s) => s.frameIndex < currentFrameIndex - 1);
-    seekToFrameIndex(prev ? prev.frameIndex : internalScenes[0].frameIndex, false);
+    const target = prev ?? internalScenes[0];
+    setLastSelectedSceneId(target.id);
+    seekToFrameIndex(target.frameIndex, false);
   }, [currentFrameIndex, internalScenes, seekToFrameIndex]);
 
   const jumpNextScene = useCallback(() => {
     if (internalScenes.length === 0) return;
     const next = internalScenes.find((s) => s.frameIndex > currentFrameIndex + 1);
-    seekToFrameIndex(
-      next ? next.frameIndex : internalScenes[internalScenes.length - 1].frameIndex,
-      false
-    );
+    const target = next ?? internalScenes[internalScenes.length - 1];
+    setLastSelectedSceneId(target.id);
+    seekToFrameIndex(target.frameIndex, false);
   }, [currentFrameIndex, internalScenes, seekToFrameIndex]);
 
   // --- Global Keyboard Transport & Editing Bindings ---
@@ -1773,7 +1808,11 @@ export default function App() {
                     markers={sortedMarkers}
                     titles={titles}
                     currentFrameIndex={currentFrameIndex}
-                    onSeekToFrame={(idx) => seekToFrameIndex(idx, false)}
+                    currentTimeSec={currentTimeSec}
+                    durationSec={metadata?.durationSec ?? 0}
+                    playbackMode={playbackMode}
+                    lastSelectedMarkerId={lastSelectedMarkerId}
+                    onSelectMarker={handleSelectMarker}
                     onAddMarkerAtCurrent={addMarkerAtCurrent}
                     onDeleteMarker={deleteMarker}
                     onAddTitleForMarker={addTitleForMarker}
@@ -1793,7 +1832,11 @@ export default function App() {
                     scenes={internalScenes}
                     progress={progress}
                     currentFrameIndex={currentFrameIndex}
-                    onSeekToFrame={(idx) => seekToFrameIndex(idx, false)}
+                    currentTimeSec={currentTimeSec}
+                    durationSec={metadata?.durationSec ?? 0}
+                    playbackMode={playbackMode}
+                    lastSelectedSceneId={lastSelectedSceneId}
+                    onSelectScene={handleSelectScene}
                     onJumpPrevScene={jumpPrevScene}
                     onJumpNextScene={jumpNextScene}
                   />

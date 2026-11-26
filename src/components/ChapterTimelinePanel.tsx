@@ -13,14 +13,19 @@ import {
   ArrowDownToLine,
   Wand2,
 } from 'lucide-react';
-import type { ChapterTitle, Marker } from '../types/video';
+import type { ChapterTitle, Marker, PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
+import { computePlayheadSlot, TimelinePlayheadGap } from './TimelinePlayheadSlot';
 
 interface ChapterTimelinePanelProps {
   markers: Marker[];
   titles: ChapterTitle[];
   currentFrameIndex: number;
-  onSeekToFrame: (frameIndex: number) => void;
+  currentTimeSec: number;
+  durationSec: number;
+  playbackMode: PlaybackMode;
+  lastSelectedMarkerId: string | null;
+  onSelectMarker: (markerId: string, frameIndex: number) => void;
   onAddMarkerAtCurrent: () => void;
   onDeleteMarker: (markerId: string) => void;
   onAddTitleForMarker: (markerId: string, text: string) => void;
@@ -39,7 +44,11 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
   markers,
   titles,
   currentFrameIndex,
-  onSeekToFrame,
+  currentTimeSec,
+  durationSec,
+  playbackMode,
+  lastSelectedMarkerId,
+  onSelectMarker,
   onAddMarkerAtCurrent,
   onDeleteMarker,
   onAddTitleForMarker,
@@ -80,6 +89,14 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
 
   const assignedCount = sortedMarkers.filter((m) => titleByMarkerId.has(m.id)).length;
   const emptyMarkerCount = sortedMarkers.length - assignedCount;
+
+  const playheadSlot = computePlayheadSlot(
+    sortedMarkers,
+    currentFrameIndex,
+    currentTimeSec,
+    durationSec,
+    1
+  );
 
   const startEditing = (title: ChapterTitle) => {
     setEditingTitleId(title.id);
@@ -168,9 +185,9 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
       </div>
 
       {/* Scrollable Vertical Marker Timeline & Matching Lane */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto min-h-0 px-3 py-1.5">
         {sortedMarkers.length === 0 ? (
-          <div className="py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
+          <div className="my-1.5 py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
             <Bookmark className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
             <p className="text-sm font-medium text-[#E2E8F0]">マーカーがまだありません</p>
             <p className="mt-1.5 text-xs text-[#94A0B2] leading-relaxed">
@@ -186,71 +203,118 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
             </button>
           </div>
         ) : (
-          sortedMarkers.map((marker, idx) => {
-            const assignedTitle = titleByMarkerId.get(marker.id) ?? null;
-            const isCurrent = Math.abs(marker.frameIndex - currentFrameIndex) <= 1;
-            const isDropHover = dropTargetMarkerId === marker.id;
+          <>
+            <TimelinePlayheadGap
+              active={playheadSlot.kind === 'before-first'}
+              progress={playheadSlot.kind === 'before-first' ? playheadSlot.progress : 0}
+              currentTimeSec={currentTimeSec}
+              playbackMode={playbackMode}
+              accent="amber"
+            />
+            {sortedMarkers.map((marker, idx) => {
+              const assignedTitle = titleByMarkerId.get(marker.id) ?? null;
+              const isCurrent =
+                playheadSlot.kind === 'on-item' && playheadSlot.index === idx;
+              const isLastSelected = lastSelectedMarkerId === marker.id;
+              const isDropHover = dropTargetMarkerId === marker.id;
+              const isGapActiveAfter =
+                (playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx) ||
+                (playheadSlot.kind === 'after-last' && idx === sortedMarkers.length - 1);
+              const gapProgressAfter =
+                playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx
+                  ? playheadSlot.progress
+                  : playheadSlot.kind === 'after-last' && idx === sortedMarkers.length - 1
+                    ? playheadSlot.progress
+                    : 0;
 
-            return (
-              <div
-                key={marker.id}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dropTargetMarkerId !== marker.id) {
-                    setDropTargetMarkerId(marker.id);
-                  }
-                }}
-                onDragLeave={() => {
-                  if (dropTargetMarkerId === marker.id) {
-                    setDropTargetMarkerId(null);
-                  }
-                }}
-                onDrop={(e) => handleDropOnMarker(e, marker.id)}
-                className={`group flex items-stretch gap-2 rounded-md border transition-colors ${
-                  isDropHover
-                    ? 'border-amber-400 bg-amber-500/15'
-                    : isCurrent
-                      ? 'border-amber-500/50 bg-[#1A1E26]'
-                      : 'border-[#232833] bg-[#14171D] hover:border-[#303745]'
-                }`}
-              >
-                {/* Left Column: Chronological Marker Timestamp & Seek Trigger */}
-                <div className="w-[126px] shrink-0 flex flex-col justify-between p-2 border-r border-[#222731] bg-[#111419]/70 rounded-l-md">
-                  <button
-                    type="button"
-                    onClick={() => onSeekToFrame(marker.frameIndex)}
-                    title={`クリックして ${formatTimecodeHMS(marker.timeSec)} (フレーム #${marker.frameIndex}) へシーク`}
-                    className="text-left group/seek cursor-pointer"
+              return (
+                <React.Fragment key={marker.id}>
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dropTargetMarkerId !== marker.id) {
+                        setDropTargetMarkerId(marker.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dropTargetMarkerId === marker.id) {
+                        setDropTargetMarkerId(null);
+                      }
+                    }}
+                    onDrop={(e) => handleDropOnMarker(e, marker.id)}
+                    className={`group flex items-stretch gap-2 rounded-md border transition-colors ${
+                      isDropHover
+                        ? 'border-amber-400 bg-amber-500/15'
+                        : isCurrent
+                          ? 'border-amber-400/80 bg-[#1B202A]'
+                          : isLastSelected
+                            ? 'border-dashed border-amber-400/80 bg-amber-500/[0.08] hover:border-amber-400'
+                            : 'border-[#232833] bg-[#14171D] hover:border-[#303745]'
+                    }`}
                   >
+                    {/* Left Column: Chronological Marker Timestamp & Seek Trigger */}
                     <div
-                      className={`font-mono-tabular text-sm font-bold leading-tight transition-colors ${
+                      className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-r rounded-l-md transition-colors ${
                         isCurrent
-                          ? 'text-amber-400'
-                          : 'text-[#F3F5F8] group-hover/seek:text-amber-300'
+                          ? 'border-amber-400/35 bg-amber-500/[0.12]'
+                          : isLastSelected
+                            ? 'border-amber-400/25 bg-amber-500/[0.09]'
+                            : 'border-[#222731] bg-[#111419]/70'
                       }`}
                     >
-                      {formatTimecodeHMS(marker.timeSec)}
-                    </div>
-                    <div className="font-mono-tabular text-[11px] text-[#647082] mt-0.5">
-                      #{marker.frameIndex}
-                    </div>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectMarker(marker.id, marker.frameIndex)}
+                        title={`クリックして ${formatTimecodeHMS(marker.timeSec)} (フレーム #${marker.frameIndex}) へシーク`}
+                        className="text-left group/seek cursor-pointer"
+                      >
+                        <div
+                          className={`font-mono-tabular text-sm font-bold leading-tight transition-colors ${
+                            isCurrent
+                              ? 'text-amber-400'
+                              : isLastSelected
+                                ? 'text-amber-200 group-hover/seek:text-amber-100'
+                                : 'text-[#F3F5F8] group-hover/seek:text-amber-300'
+                          }`}
+                        >
+                          {formatTimecodeHMS(marker.timeSec)}
+                        </div>
+                        <div className="font-mono-tabular text-[11px] text-[#647082] mt-0.5">
+                          #{marker.frameIndex}
+                        </div>
+                      </button>
 
-                  <div className="mt-1.5 flex items-center justify-between">
-                    <span className="font-mono-tabular text-[10px] text-[#566071]">
-                      M{String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMarker(marker.id)}
-                      title="このマーカーを削除（割当中のタイトルは未割当リストへ移動します）"
-                      className="p-0.5 text-[#647082] hover:text-red-400 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className={`font-mono-tabular text-[10px] ${
+                              isCurrent || isLastSelected ? 'text-amber-400/90 font-semibold' : 'text-[#566071]'
+                            }`}
+                          >
+                            M{String(idx + 1).padStart(2, '0')}
+                          </span>
+                          {isLastSelected && !isCurrent && (
+                            <span className="text-[10px] font-medium text-amber-300/90 whitespace-nowrap">
+                              選択位置
+                            </span>
+                          )}
+                          {isCurrent && (
+                            <span className="text-[10px] font-semibold text-amber-300 whitespace-nowrap">
+                              現在位置
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMarker(marker.id)}
+                          title="このマーカーを削除（割当中のタイトルは未割当リストへ移動します）"
+                          className="p-0.5 text-[#647082] hover:text-red-400 transition-colors cursor-pointer shrink-0"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
 
                 {/* Right Column: Assigned Chapter Title OR Empty Droppable Slot */}
                 <div className="flex-1 min-w-0 p-2 flex items-center">
@@ -414,8 +478,17 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                   )}
                 </div>
               </div>
-            );
-          })
+                  <TimelinePlayheadGap
+                    active={isGapActiveAfter}
+                    progress={gapProgressAfter}
+                    currentTimeSec={currentTimeSec}
+                    playbackMode={playbackMode}
+                    accent="amber"
+                  />
+                </React.Fragment>
+              );
+            })}
+          </>
         )}
       </div>
 

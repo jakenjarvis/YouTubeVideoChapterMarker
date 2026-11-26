@@ -1,14 +1,19 @@
 import React from 'react';
 import { Loader2, SkipBack, SkipForward, Compass } from 'lucide-react';
-import type { AnalysisProgress, InternalScene } from '../types/video';
+import type { AnalysisProgress, InternalScene, PlaybackMode } from '../types/video';
 import { splitTimecodeParts } from '../utils/timecode';
+import { computePlayheadSlot, TimelinePlayheadGap } from './TimelinePlayheadSlot';
 
 interface InternalScenePanelProps {
   sourceType: 'local' | 'youtube';
   scenes: InternalScene[];
   progress: AnalysisProgress;
   currentFrameIndex: number;
-  onSeekToFrame: (frameIndex: number) => void;
+  currentTimeSec: number;
+  durationSec: number;
+  playbackMode: PlaybackMode;
+  lastSelectedSceneId: string | null;
+  onSelectScene: (sceneId: string, frameIndex: number) => void;
   onJumpPrevScene: () => void;
   onJumpNextScene: () => void;
 }
@@ -24,10 +29,22 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
   scenes,
   progress,
   currentFrameIndex,
-  onSeekToFrame,
+  currentTimeSec,
+  durationSec,
+  playbackMode,
+  lastSelectedSceneId,
+  onSelectScene,
   onJumpPrevScene,
   onJumpNextScene,
 }) => {
+  const playheadSlot = computePlayheadSlot(
+    scenes,
+    currentFrameIndex,
+    currentTimeSec,
+    durationSec,
+    2
+  );
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Explicit Separation Notice + Reference Axis Prev/Next Controls */}
@@ -76,9 +93,9 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
       </div>
 
       {/* Reference Scene List */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-1">
+      <div className="flex-1 overflow-y-auto min-h-0 px-3 py-1.5">
         {scenes.length === 0 ? (
-          <div className="py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
+          <div className="my-1.5 py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
             <Compass className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
             <p className="text-sm font-medium text-[#E2E8F0]">
               {sourceType === 'youtube'
@@ -94,45 +111,93 @@ export const InternalScenePanel: React.FC<InternalScenePanelProps> = ({
             </p>
           </div>
         ) : (
-          scenes.map((scene) => {
-            const { hms, ms } = splitTimecodeParts(scene.timeSec);
-            const isNearCurrent = Math.abs(scene.frameIndex - currentFrameIndex) <= 2;
+          <>
+            <TimelinePlayheadGap
+              active={playheadSlot.kind === 'before-first'}
+              progress={playheadSlot.kind === 'before-first' ? playheadSlot.progress : 0}
+              currentTimeSec={currentTimeSec}
+              playbackMode={playbackMode}
+              accent="sky"
+            />
+            {scenes.map((scene, idx) => {
+              const { hms, ms } = splitTimecodeParts(scene.timeSec);
+              const isNearCurrent =
+                playheadSlot.kind === 'on-item' && playheadSlot.index === idx;
+              const isLastSelected = lastSelectedSceneId === scene.id;
+              const isGapActiveAfter =
+                (playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx) ||
+                (playheadSlot.kind === 'after-last' && idx === scenes.length - 1);
+              const gapProgressAfter =
+                playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx
+                  ? playheadSlot.progress
+                  : playheadSlot.kind === 'after-last' && idx === scenes.length - 1
+                    ? playheadSlot.progress
+                    : 0;
 
-            return (
-              <button
-                key={scene.id}
-                type="button"
-                onClick={() => onSeekToFrame(scene.frameIndex)}
-                className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors flex items-center justify-between gap-3 cursor-pointer ${
-                  isNearCurrent
-                    ? 'bg-sky-500/12 border-sky-400/50'
-                    : 'bg-[#14171D] border-[#222731] hover:border-sky-500/40 hover:bg-[#181C24]'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-baseline gap-2 font-mono-tabular">
-                    <span className="text-xs text-sky-400 font-semibold">
-                      S{String(scene.sceneNumber).padStart(2, '0')}
-                    </span>
-                    <span className="text-sm font-bold text-[#F3F5F8]">
-                      {hms}
-                      <span className="text-xs font-normal text-[#647082]">.{ms}</span>
-                    </span>
-                    <span className="text-xs text-[#94A0B2]">#{scene.frameIndex}</span>
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-[#7D899B] flex items-center gap-2">
-                    <span>{reasonLabelMap[scene.reason]}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono-tabular">変化度 {Math.round(scene.score * 100)}%</span>
-                  </div>
-                </div>
+              return (
+                <React.Fragment key={scene.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectScene(scene.id, scene.frameIndex)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors flex items-center justify-between gap-3 cursor-pointer ${
+                      isNearCurrent
+                        ? 'bg-sky-500/[0.15] border-sky-400/80'
+                        : isLastSelected
+                          ? 'bg-sky-500/[0.08] border-dashed border-sky-400/80 hover:border-sky-400'
+                          : 'bg-[#14171D] border-[#222731] hover:border-sky-500/40 hover:bg-[#181C24]'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2 font-mono-tabular">
+                        <span className="text-xs text-sky-400 font-semibold">
+                          S{String(scene.sceneNumber).padStart(2, '0')}
+                        </span>
+                        <span
+                          className={`text-sm font-bold ${
+                            isNearCurrent
+                              ? 'text-sky-300'
+                              : isLastSelected
+                                ? 'text-sky-200'
+                                : 'text-[#F3F5F8]'
+                          }`}
+                        >
+                          {hms}
+                          <span className="text-xs font-normal text-[#647082]">.{ms}</span>
+                        </span>
+                        <span className="text-xs text-[#94A0B2]">#{scene.frameIndex}</span>
+                        {isLastSelected && !isNearCurrent && (
+                          <span className="font-sans text-[10px] font-medium text-sky-300/90 whitespace-nowrap">
+                            選択位置
+                          </span>
+                        )}
+                        {isNearCurrent && (
+                          <span className="font-sans text-[10px] font-semibold text-sky-300 whitespace-nowrap">
+                            現在位置
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-[#7D899B] flex items-center gap-2">
+                        <span>{reasonLabelMap[scene.reason]}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono-tabular">変化度 {Math.round(scene.score * 100)}%</span>
+                      </div>
+                    </div>
 
-                <span className="text-[11px] text-sky-400/90 font-medium whitespace-nowrap shrink-0">
-                  シーク →
-                </span>
-              </button>
-            );
-          })
+                    <span className="text-[11px] text-sky-400/90 font-medium whitespace-nowrap shrink-0">
+                      シーク →
+                    </span>
+                  </button>
+                  <TimelinePlayheadGap
+                    active={isGapActiveAfter}
+                    progress={gapProgressAfter}
+                    currentTimeSec={currentTimeSec}
+                    playbackMode={playbackMode}
+                    accent="sky"
+                  />
+                </React.Fragment>
+              );
+            })}
+          </>
         )}
       </div>
     </div>
