@@ -5,9 +5,17 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(({command}) => {
+  const pkg = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')
+  ) as {version?: string};
+  const appVersion = pkg.version ?? '1.0.0';
+
   return {
     base: process.env.VITE_BASE_PATH ?? (command === 'build' ? './' : '/'),
     publicDir: false as const,
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     plugins: [
       react(),
       tailwindcss(),

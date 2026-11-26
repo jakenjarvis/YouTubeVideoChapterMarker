@@ -1503,9 +1503,12 @@ export default function App() {
             if (appMode === 'edit') return;
             setAppMode('select');
           }}
-          className="text-base font-bold tracking-tight text-[#F8FAFC] whitespace-nowrap shrink-0 cursor-pointer"
+          className="inline-flex items-baseline gap-2 text-base font-bold tracking-tight text-[#F8FAFC] whitespace-nowrap shrink-0 cursor-pointer"
         >
-          YouTube Video Chapter Marker
+          <span>YouTube Video Chapter Marker</span>
+          <span className="font-mono-tabular text-xs font-medium text-[#94A0B2]">
+            Ver {__APP_VERSION__}
+          </span>
         </button>
 
         {/* Zone 2: Clean Single-Line Text Navigation Actions */}
