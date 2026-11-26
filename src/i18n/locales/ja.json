@@ -40,7 +40,7 @@
     "brandTitle": "YouTube Video Chapter Marker",
     "versionLabel": "Ver {{version}}",
     "openAnotherVideo": "別の動画を開く",
-    "loadYouTube": "YouTube読込",
+    "loadYouTube": "YouTube",
     "importTitles": "タイトル読込",
     "shortcuts": "ショートカット",
     "importExportText": "テキスト入出力",
@@ -78,10 +78,10 @@
     "threeSecRuleRemaining": "{{seconds}}秒",
     "threeSecRuleSuffix": "）。",
     "skipToEdit": "今すぐ編集へ進む",
-    "introHeading": "ローカル動画・YouTube動画から、精密にチャプターを作成・編集",
-    "introDescPrefix": "PC内の動画ファイルまたはYouTubeのURLを読み込み、フレーム対応リストを基準にシーク・マーキング。YouTube動画の概要欄にある既存チャプターの取り込みと、YouTube概要欄形式（",
+    "introHeading": "さあ、動画のチャプターを作ろう！",
+    "introDescPrefix": "動画ファイルやYouTubeのURLを読み込むだけで、フレーム単位で素早くマーキング。既存のチャプター編集から、概要欄にそのまま貼れるリスト（",
     "introDescFormatExample": "00:00:00 タイトル",
-    "introDescSuffix": "）の生成に対応しています。",
+    "introDescSuffix": "）の作成までこれひとつで完結します。",
     "dropzoneHeading": "動画ファイルをここにドラッグ＆ドロップ、またはクリックして選択",
     "dropzoneSub": "MP4 · MOV · WebM · MKV · M4V などローカル動画ファイルに対応（ファイルは外部サーバーに送信されずブラウザ内で解析されます）",
     "selectVideoFile": "動画ファイルを選択",
@@ -326,7 +326,7 @@
     "youtubeLoadGenericError": "YouTube動画の読み込み中にエラーが発生しました。",
     "youtubeInfoFetchFailed": "YouTube動画情報の取得に失敗しました。",
     "youtubeLoadFailed": "YouTube動画の読み込みに失敗しました。",
-    "staticSiteYouTubeWarning": "静的サイト環境のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入出力」→「入力（タイプB）」から取り込めます。"
+    "staticSiteYouTubeWarning": "静的サイト環境のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入出力」→「読込（タイプB：時刻付き）」から取り込めます。"
   },
   "notices": {
     "chapterSourceDescription": "概要欄",
@@ -365,6 +365,6 @@
     "q4": "VFR（可変フレームレート）対応とフレーム精度シークのメリットは？",
     "a4": "画面録画やスマートフォン撮影の動画はVFRになることが多く、一般的なシークでは時刻がずれがちです。フレーム対応リストを構築することで、J/K/L再生や矢印キーの1フレーム送りでシーン切り替え位置を正確にマークできます。",
     "q5": "ログインやインストールは必要ですか？無料で使えますか？",
-    "a5": "アカウント登録もソフトのインストールも不要で、完全無料で利用できます。ブラウザからそのまま起動でき、日本語・英語の表示切り替えにも対応しています。"
+    "a5": "アカウント登録もソフトのインストールも不要で、完全無料で利用できます。ブラウザからそのまま起動でき、日本語をはじめ多言語の表示切り替えにも対応しています。"
   }
 }

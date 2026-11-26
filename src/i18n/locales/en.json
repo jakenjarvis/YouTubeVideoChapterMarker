@@ -84,10 +84,10 @@
     "threeSecRuleRemaining": "{{seconds}}s left",
     "threeSecRuleSuffix": ").",
     "skipToEdit": "Start Editing Now",
-    "introHeading": "Create & Edit Frame-Accurate YouTube Chapters from Local or YouTube Videos",
-    "introDescPrefix": "Load a local video file or YouTube URL to seek and mark frames with precision. Import existing chapters from YouTube descriptions and export clean YouTube chapter text (",
+    "introHeading": "Let's create your video chapters!",
+    "introDescPrefix": "Drop a video file or paste a YouTube URL to mark scenes with frame accuracy. Edit existing chapters or generate a clean list (",
     "introDescFormatExample": "00:00:00 Title",
-    "introDescSuffix": ").",
+    "introDescSuffix": ") ready to paste into YouTube.",
     "dropzoneHeading": "Drag & drop a video file here, or click to browse",
     "dropzoneSub": "Supports MP4 · MOV · WebM · MKV · M4V and other local videos (processed locally in your browser; files are never uploaded)",
     "selectVideoFile": "Choose Video File",
@@ -401,6 +401,6 @@
     "q4": "What makes frame-accurate VFR seeking useful for chapter marking?",
     "a4": "Screen recordings and smartphone clips often use Variable Frame Rate (VFR). By building a frame correspondence map, you can step frame-by-frame or second-by-second with J/K/L and arrow keys and snap markers to exact scene transitions.",
     "q5": "Is YouTube Video Chapter Marker free to use without creating an account?",
-    "a5": "Yes. It is completely free, requires no registration or installation, and runs directly in modern desktop browsers with both English and Japanese interfaces."
+    "a5": "Yes. It is completely free, requires no registration or installation, and runs directly in modern desktop browsers with a multilingual interface."
   }
 }
