@@ -399,6 +399,13 @@ async function startServer() {
   const httpServer = http.createServer(app);
 
   if (!IS_PROD) {
+    // Serve static SEO & public assets (favicon.svg, og-image.png, robots.txt, sitemap.xml)
+    // because vite.config.ts sets publicDir: false.
+    const publicDir = path.resolve(__dirname, 'public');
+    if (fs.existsSync(publicDir)) {
+      app.use(express.static(publicDir));
+    }
+
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
@@ -411,7 +418,15 @@ async function startServer() {
   } else {
     const distDir = path.resolve(__dirname, 'dist');
     app.use(express.static(distDir));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
+      const localeMatch = /^\/(en|ja)(?:\/|$)/i.exec(req.path);
+      if (localeMatch) {
+        const localeIndex = path.join(distDir, localeMatch[1].toLowerCase(), 'index.html');
+        if (fs.existsSync(localeIndex)) {
+          res.sendFile(localeIndex);
+          return;
+        }
+      }
       const indexFile = path.join(distDir, 'index.html');
       if (fs.existsSync(indexFile)) {
         res.sendFile(indexFile);

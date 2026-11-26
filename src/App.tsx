@@ -8,8 +8,6 @@ import {
   FileText,
   FolderOpen,
   Keyboard,
-  Volume2,
-  VolumeX,
   Bookmark,
   Compass,
   Youtube,
@@ -103,6 +101,8 @@ const INITIAL_PROGRESS: AnalysisProgress = {
 type RightPanelTab = 'chapters' | 'scenes';
 
 const SIDEBAR_STORAGE_KEY = 'vcm_right_panel_width';
+const VOLUME_STORAGE_KEY = 'vcm_volume';
+const MUTED_STORAGE_KEY = 'vcm_muted';
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const MIN_SIDEBAR_WIDTH = 320;
 const MIN_LEFT_PANEL_WIDTH = 380;
@@ -120,6 +120,29 @@ function readInitialSidebarWidth(): number {
     // ignore storage access errors
   }
   return DEFAULT_SIDEBAR_WIDTH;
+}
+
+function readInitialVolume(): number {
+  try {
+    const raw = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (raw !== null) {
+      const parsed = parseFloat(raw);
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore storage access errors
+  }
+  return 1;
+}
+
+function readInitialMuted(): boolean {
+  try {
+    return window.localStorage.getItem(MUTED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export default function App() {
@@ -149,7 +172,9 @@ export default function App() {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('paused');
-  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState<number>(readInitialVolume);
+  const [isMuted, setIsMuted] = useState<boolean>(readInitialMuted);
+  const lastNonZeroVolumeRef = useRef<number>(volume > 0 ? volume : 1);
 
   // YouTube loading & notification state
   const [isYouTubeLoading, setIsYouTubeLoading] = useState(false);
@@ -182,6 +207,56 @@ export default function App() {
   useEffect(() => {
     sourceTypeRef.current = metadata?.sourceType ?? 'local';
   }, [metadata?.sourceType]);
+
+  // Keep local <video> audio level and mute state synchronized & persisted
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) {
+      v.volume = Math.max(0, Math.min(1, volume));
+      v.muted = isMuted || volume <= 0;
+    }
+    try {
+      window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
+      window.localStorage.setItem(MUTED_STORAGE_KEY, String(isMuted));
+    } catch {
+      // ignore storage errors
+    }
+  }, [volume, isMuted, videoUrl, appMode]);
+
+  const handleVolumeChange = useCallback((nextRaw: number) => {
+    const clamped = Math.round(Math.max(0, Math.min(1, nextRaw)) * 100) / 100;
+    if (clamped > 0) {
+      lastNonZeroVolumeRef.current = clamped;
+      setVolume(clamped);
+      setIsMuted(false);
+    } else {
+      setVolume(0);
+      setIsMuted(true);
+    }
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    if (isMuted || volume <= 0) {
+      const restored = lastNonZeroVolumeRef.current > 0 ? lastNonZeroVolumeRef.current : 1;
+      if (volume <= 0) {
+        setVolume(restored);
+      }
+      setIsMuted(false);
+    } else {
+      if (volume > 0) {
+        lastNonZeroVolumeRef.current = volume;
+      }
+      setIsMuted(true);
+    }
+  }, [isMuted, volume]);
+
+  const adjustVolumeBy = useCallback(
+    (delta: number) => {
+      const base = isMuted ? 0 : volume;
+      handleVolumeChange(base + delta);
+    },
+    [handleVolumeChange, isMuted, volume]
+  );
 
   // Keep layout mode & sidebar width safely clamped when the browser window resizes
   useEffect(() => {
@@ -380,7 +455,8 @@ export default function App() {
       if (yt.getCurrentTime() >= maxAllowed - 0.15) {
         seekToFrameIndex(0, true);
       }
-      yt.setMuted(isMuted);
+      yt.setVolume(volume);
+      yt.setMuted(isMuted || volume <= 0);
       playbackModeRef.current = 'forward';
       setPlaybackMode('forward');
       yt.play();
@@ -394,14 +470,15 @@ export default function App() {
       seekToFrameIndex(0, true);
     }
 
-    v.muted = isMuted;
+    v.volume = Math.max(0, Math.min(1, volume));
+    v.muted = isMuted || volume <= 0;
     playbackModeRef.current = 'forward';
     setPlaybackMode('forward');
     v.play().catch(() => {
       playbackModeRef.current = 'paused';
       setPlaybackMode('paused');
     });
-  }, [isMuted, seekToFrameIndex]);
+  }, [isMuted, seekToFrameIndex, volume]);
 
   const playReverse = useCallback(() => {
     const frames = frameMapRef.current;
@@ -1505,6 +1582,17 @@ export default function App() {
         return;
       }
 
+      if (key === 'ArrowUp' && e.shiftKey && !hasPrimaryMod) {
+        e.preventDefault();
+        adjustVolumeBy(0.1);
+        return;
+      }
+      if (key === 'ArrowDown' && e.shiftKey && !hasPrimaryMod) {
+        e.preventDefault();
+        adjustVolumeBy(-0.1);
+        return;
+      }
+
       // Do not hijack browser shortcuts (Ctrl/Cmd + C, R, M, N, P, etc.)
       if (hasPrimaryMod) return;
 
@@ -1538,7 +1626,8 @@ export default function App() {
         stepSeconds(15);
       } else if (lower === 'm' || code === 'KeyM') {
         e.preventDefault();
-        addMarkerAtCurrent();
+        if (e.shiftKey) handleToggleMute();
+        else addMarkerAtCurrent();
       } else if (lower === 'p' || code === 'KeyP') {
         e.preventDefault();
         if (e.shiftKey) jumpPrevScene();
@@ -1554,7 +1643,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     addMarkerAtCurrent,
+    adjustVolumeBy,
     appMode,
+    handleToggleMute,
     isImportExportOpen,
     isShortcutHelpOpen,
     isYouTubeModalOpen,
@@ -1739,44 +1830,33 @@ export default function App() {
                     key={metadata.youtubeVideoId}
                     videoId={metadata.youtubeVideoId}
                     isMuted={isMuted}
+                    volume={volume}
                     controllerRef={youtubeControllerRef}
                     onReady={handleYouTubePlayerReady}
                     onPlaybackStateChange={handleYouTubePlaybackStateChange}
                   />
                 ) : (
-                  <>
-                    {videoUrl && (
-                      <video
-                        ref={videoRef}
-                        src={videoUrl}
-                        muted={isMuted}
-                        playsInline
-                        preload="auto"
-                        onClick={togglePlayPause}
-                        onLoadedData={() => {
-                          const v = videoRef.current;
-                          if (v && currentTimeSec > 0) {
+                  videoUrl && (
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      muted={isMuted || volume <= 0}
+                      playsInline
+                      preload="auto"
+                      onClick={togglePlayPause}
+                      onLoadedData={() => {
+                        const v = videoRef.current;
+                        if (v) {
+                          v.volume = Math.max(0, Math.min(1, volume));
+                          v.muted = isMuted || volume <= 0;
+                          if (currentTimeSec > 0) {
                             v.currentTime = currentTimeSec;
                           }
-                        }}
-                        className="w-full h-full object-contain cursor-pointer"
-                      />
-                    )}
-
-                    {/* Minimal mute control inside local monitor corner */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextMuted = !isMuted;
-                        setIsMuted(nextMuted);
-                        if (videoRef.current) videoRef.current.muted = nextMuted;
+                        }
                       }}
-                      title={isMuted ? t('workspace.unmute') : t('workspace.mute')}
-                      className="absolute bottom-3 end-3 p-2 rounded-md bg-black/65 hover:bg-black/85 text-[#E2E8F0] border border-white/10 transition-colors cursor-pointer"
-                    >
-                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    </button>
-                  </>
+                      className="w-full h-full object-contain cursor-pointer"
+                    />
+                  )
                 )}
               </div>
 
@@ -1810,6 +1890,10 @@ export default function App() {
                 onAddMarkerAtCurrent={addMarkerAtCurrent}
                 onJumpPrevMarker={jumpPrevMarker}
                 onJumpNextMarker={jumpNextMarker}
+                volume={volume}
+                isMuted={isMuted}
+                onVolumeChange={handleVolumeChange}
+                onToggleMute={handleToggleMute}
               />
             </div>
 

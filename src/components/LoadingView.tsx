@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Download } from 'lucide-react';
+import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Download, ChevronDown } from 'lucide-react';
 import type { AnalysisProgress, AppMode, VideoMetadata } from '../types/video';
 import { formatFileSize, formatTimecodeHMS } from '../utils/timecode';
 import { extractYouTubeVideoId } from '../utils/youtube';
@@ -367,6 +367,45 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
               : ` (${t('metadata.youtubeSourceTag')})`}
           </div>
         )}
+
+        {/* Frequently Asked Questions (semantic accordion aligned with FAQPage JSON-LD) */}
+        <section
+          aria-labelledby="faq-heading"
+          className="mt-10 pt-8 border-t border-[#222730]"
+        >
+          <div className="mb-4">
+            <h2
+              id="faq-heading"
+              className="text-sm font-semibold text-[#F3F5F8] tracking-tight"
+            >
+              {t('faq.heading')}
+            </h2>
+            <p className="mt-1 text-xs text-[#7D899B] leading-relaxed">
+              {t('faq.subheading')}
+            </p>
+          </div>
+          <div className="divide-y divide-[#222730] rounded-xl border border-[#222730] bg-[#14171C]">
+            {(
+              [
+                ['faq.q1', 'faq.a1'],
+                ['faq.q2', 'faq.a2'],
+                ['faq.q3', 'faq.a3'],
+                ['faq.q4', 'faq.a4'],
+                ['faq.q5', 'faq.a5'],
+              ] as const
+            ).map(([qKey, aKey]) => (
+              <details key={qKey} className="group">
+                <summary className="flex items-center justify-between gap-4 px-5 py-3.5 text-xs sm:text-sm font-medium text-[#E2E8F0] hover:text-[#F8FAFC] cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
+                  <span>{t(qKey)}</span>
+                  <ChevronDown className="w-4 h-4 text-[#647082] group-open:rotate-180 group-open:text-amber-400 transition-transform shrink-0" />
+                </summary>
+                <div className="px-5 pb-4 text-xs text-[#94A0B2] leading-relaxed">
+                  {t(aKey)}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

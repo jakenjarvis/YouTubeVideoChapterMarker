@@ -8,6 +8,9 @@ import {
   ChevronRight,
   SkipBack,
   SkipForward,
+  Volume1,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { InternalScene, Marker, PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
@@ -30,6 +33,10 @@ interface TransportControlsProps {
   onAddMarkerAtCurrent: () => void;
   onJumpPrevMarker: () => void;
   onJumpNextMarker: () => void;
+  volume: number;
+  isMuted: boolean;
+  onVolumeChange: (volume: number) => void;
+  onToggleMute: () => void;
 }
 
 export const TransportControls: React.FC<TransportControlsProps> = ({
@@ -49,8 +56,16 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
   onAddMarkerAtCurrent,
   onJumpPrevMarker,
   onJumpNextMarker,
+  volume,
+  isMuted,
+  onVolumeChange,
+  onToggleMute,
 }) => {
   const { t, tp } = useI18n();
+  const effectiveVolume = isMuted ? 0 : Math.max(0, Math.min(1, volume));
+  const volumePercent = Math.round(effectiveVolume * 100);
+  const VolumeIcon =
+    volumePercent === 0 ? VolumeX : volumePercent <= 50 ? Volume1 : Volume2;
   const scrubberRef = useRef<HTMLDivElement>(null);
   const safeDuration = Math.max(0.01, durationSec);
   const playheadPct = Math.max(0, Math.min(100, (currentTimeSec / safeDuration) * 100));
@@ -264,17 +279,56 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           </button>
         </div>
 
-        {/* Primary Action: Add Marker at Current Frame */}
-        <button
-          type="button"
-          onClick={onAddMarkerAtCurrent}
-          title={t('transport.addMarkerTitle')}
-          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-        >
-          <BookmarkPlus className="w-4 h-4" />
-          {t('transport.addMarkerLabel')}
-          <kbd className="text-[10px] font-mono-tabular px-1 py-0.5 rounded bg-black/15 text-[#0D0F12]">M</kbd>
-        </button>
+        {/* Audio Volume / Mute Control + Primary Add Marker CTA */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div
+            dir="ltr"
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[#101318] border border-[#242933] shrink-0"
+          >
+            <button
+              type="button"
+              onClick={onToggleMute}
+              title={volumePercent === 0 ? t('transport.unmuteTitle') : t('transport.muteTitle')}
+              aria-label={
+                volumePercent === 0 ? t('transport.unmuteTitle') : t('transport.muteTitle')
+              }
+              aria-pressed={volumePercent === 0}
+              className={`p-0.5 rounded transition-colors cursor-pointer ${
+                volumePercent === 0
+                  ? 'text-red-400 hover:text-red-300'
+                  : 'text-[#CBD5E1] hover:text-amber-300'
+              }`}
+            >
+              <VolumeIcon className="w-4 h-4" />
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={volumePercent}
+              onChange={(e) => onVolumeChange(Number(e.target.value) / 100)}
+              aria-label={t('transport.volumeSliderAriaLabel')}
+              aria-valuetext={t('transport.volumePercentLabel', { percent: volumePercent })}
+              title={t('transport.volumePercentLabel', { percent: volumePercent })}
+              className="w-20 h-1.5 accent-amber-400 cursor-pointer"
+            />
+            <span className="font-mono-tabular text-[11px] text-[#94A0B2] w-8 text-right select-none">
+              {volumePercent}%
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onAddMarkerAtCurrent}
+            title={t('transport.addMarkerTitle')}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <BookmarkPlus className="w-4 h-4" />
+            {t('transport.addMarkerLabel')}
+            <kbd className="text-[10px] font-mono-tabular px-1 py-0.5 rounded bg-black/15 text-[#0D0F12]">M</kbd>
+          </button>
+        </div>
       </div>
 
       {/* Row 2: Precision Frame Skip (1, 10, 30) & Second Skip (1, 10, 15) */}

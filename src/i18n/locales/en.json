@@ -1,7 +1,10 @@
 {
   "meta": {
-    "title": "YouTube Video Chapter Marker",
-    "description": "Create YouTube description chapter lists (00:00:00 Title) with frame-accurate seeking, VFR frame mapping, and background scene detection."
+    "title": "YouTube Video Chapter Marker — Free Frame-Accurate Tool",
+    "description": "Create YouTube video chapters (00:00:00 Title) free in your browser. Frame-accurate VFR seeking, auto scene detection, YouTube import, and instant export.",
+    "siteName": "YouTube Video Chapter Marker",
+    "ogImageAlt": "YouTube Video Chapter Marker — Free browser-based frame-accurate YouTube chapter timestamp editor",
+    "appDescription": "Free browser-based YouTube chapter timestamp editor with VFR frame-accurate seeking, background scene detection, and YouTube description import/export."
   },
   "common": {
     "close": "Close",
@@ -159,7 +162,11 @@
       "one": "Skip {{delta}} second",
       "other": "Skip {{delta}} seconds"
     },
-    "secondDeltaButton": "{{delta}}s"
+    "secondDeltaButton": "{{delta}}s",
+    "muteTitle": "Mute (Shift+M)",
+    "unmuteTitle": "Unmute (Shift+M)",
+    "volumeSliderAriaLabel": "Volume",
+    "volumePercentLabel": "Volume {{percent}}%"
   },
   "chapters": {
     "summaryMarkers": "Markers {{count}}",
@@ -306,6 +313,10 @@
     "playForward": "Play forward",
     "keyJ": "J",
     "playReverse": "Play reverse",
+    "keyShiftM": "Shift + M",
+    "muteToggleDesc": "Mute / Unmute",
+    "keyShiftUpDown": "Shift + ↑ / ↓",
+    "volumeAdjustDesc": "Volume up / down (±10%)",
     "groupFrameStep": "Frame Stepping",
     "step1FrameKeys": "← / → or , / .",
     "step1FrameDesc": "Step back / forward 1 frame",
@@ -374,5 +385,19 @@
     "scene5Sub": "Instant export to YouTube description format",
     "overlayTimecode": "TC {{timecode}}   FRAME #{{frame}}",
     "defaultFileName": "sample_chapters_demo.{{ext}}"
+  },
+  "faq": {
+    "heading": "Frequently Asked Questions",
+    "subheading": "Quick answers on YouTube chapter creation, privacy, and supported video formats.",
+    "q1": "How do I format YouTube video chapters so they work in the description?",
+    "a1": "Start your first chapter at 00:00:00 (or 00:00), include at least 3 timestamps in ascending order, and keep each chapter at least 10 seconds long. YouTube Video Chapter Marker formats your timeline directly into ready-to-paste 00:00:00 Title lines.",
+    "q2": "Are my local video files uploaded to a server?",
+    "a2": "No. Local video files (MP4, MOV, WebM, MKV, M4V) are analyzed and played entirely inside your browser. Your media files never leave your device.",
+    "q3": "Can I edit existing chapters from a published YouTube video?",
+    "a3": "Yes. Paste any public YouTube URL or 11-character video ID to load playback and automatically extract existing description chapters in read-only mode, then refine timestamps or titles and copy the updated list.",
+    "q4": "What makes frame-accurate VFR seeking useful for chapter marking?",
+    "a4": "Screen recordings and smartphone clips often use Variable Frame Rate (VFR). By building a frame correspondence map, you can step frame-by-frame or second-by-second with J/K/L and arrow keys and snap markers to exact scene transitions.",
+    "q5": "Is YouTube Video Chapter Marker free to use without creating an account?",
+    "a5": "Yes. It is completely free, requires no registration or installation, and runs directly in modern desktop browsers with both English and Japanese interfaces."
   }
 }

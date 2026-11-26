@@ -9,6 +9,7 @@ export interface YouTubePlayerController {
   getCurrentTime: () => number;
   getDuration: () => number;
   setMuted: (muted: boolean) => void;
+  setVolume: (volume: number) => void;
   isReady: () => boolean;
 }
 
@@ -20,6 +21,7 @@ interface YTPlayerInstance {
   getDuration: () => number;
   mute: () => void;
   unMute: () => void;
+  setVolume: (volume: number) => void;
   destroy: () => void;
   getPlayerState: () => number;
   getVideoData?: () => { title?: string; author?: string; video_id?: string };
@@ -106,6 +108,7 @@ function loadYouTubeIframeApi(): Promise<YTNamespace> {
 interface YouTubePlayerViewProps {
   videoId: string;
   isMuted: boolean;
+  volume: number;
   controllerRef: React.RefObject<YouTubePlayerController | null>;
   onReady?: (durationSec: number, info?: { title?: string; author?: string }) => void;
   onPlaybackStateChange?: (state: 'playing' | 'paused' | 'ended') => void;
@@ -114,6 +117,7 @@ interface YouTubePlayerViewProps {
 export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
   videoId,
   isMuted,
+  volume,
   controllerRef,
   onReady,
   onPlaybackStateChange,
@@ -125,6 +129,7 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
   const onReadyRef = useRef(onReady);
   const onStateRef = useRef(onPlaybackStateChange);
   const mutedRef = useRef(isMuted);
+  const volumeRef = useRef(volume);
 
   const [isLoading, setIsLoading] = useState(true);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -139,16 +144,19 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
 
   useEffect(() => {
     mutedRef.current = isMuted;
+    volumeRef.current = volume;
     const p = playerRef.current;
     if (p && readyRef.current) {
       try {
-        if (isMuted) p.mute();
+        const clampedPct = Math.round(Math.max(0, Math.min(1, volume)) * 100);
+        p.setVolume(clampedPct);
+        if (isMuted || clampedPct === 0) p.mute();
         else p.unMute();
       } catch {
         // ignore transient player state errors
       }
     }
-  }, [isMuted]);
+  }, [isMuted, volume]);
 
   useImperativeHandle(
     controllerRef,
@@ -212,6 +220,15 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
           }
         }
       },
+      setVolume: (nextVol: number) => {
+        if (playerRef.current && readyRef.current) {
+          try {
+            playerRef.current.setVolume(Math.round(Math.max(0, Math.min(1, nextVol)) * 100));
+          } catch {
+            // ignore
+          }
+        }
+      },
       isReady: () => readyRef.current,
     }),
     []
@@ -250,7 +267,9 @@ export const YouTubePlayerView: React.FC<YouTubePlayerViewProps> = ({
               if (cancelled) return;
               readyRef.current = true;
               setIsLoading(false);
-              if (mutedRef.current) {
+              const clampedPct = Math.round(Math.max(0, Math.min(1, volumeRef.current)) * 100);
+              event.target.setVolume(clampedPct);
+              if (mutedRef.current || clampedPct === 0) {
                 event.target.mute();
               } else {
                 event.target.unMute();

@@ -61,6 +61,7 @@ export const SUPPORTED_LOCALES: readonly LocaleMeta[] = [
 ] as const;
 
 export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const DEFAULT_SITE_URL = 'https://youtube-video-chapter-marker.vercel.app';
 const LOCALE_STORAGE_KEY = 'vcm_locale';
 const LOCALE_QUERY_PARAM = 'lang';
 
@@ -128,6 +129,34 @@ export function matchSupportedLocale(rawTag: string | null | undefined): Support
   return byBase ? byBase.code : null;
 }
 
+function getCanonicalOrigin(): string {
+  const envUrl =
+    typeof import.meta !== 'undefined' && typeof import.meta.env?.VITE_SITE_URL === 'string'
+      ? import.meta.env.VITE_SITE_URL.trim()
+      : '';
+  if (envUrl && /^https?:\/\//i.test(envUrl)) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  return DEFAULT_SITE_URL;
+}
+
+function readPathLocale(): SupportedLocale | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const match = /^\/([a-z]{2}(?:-[a-z0-9]{2,4})?)(?:\/|$)/i.exec(window.location.pathname);
+    if (!match) return null;
+    return matchSupportedLocale(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function isRootOrLocalePath(pathname: string): boolean {
+  if (pathname === '/' || pathname === '') return true;
+  const match = /^\/([a-z]{2}(?:-[a-z0-9]{2,4})?)\/?$/i.exec(pathname);
+  return Boolean(match && matchSupportedLocale(match[1]));
+}
+
 function readQueryLocale(): SupportedLocale | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -156,10 +185,19 @@ function writeStoredLocale(locale: SupportedLocale): void {
   }
 }
 
-function syncUrlQueryLocale(locale: SupportedLocale): void {
+function syncUrlLocale(locale: SupportedLocale): void {
   if (typeof window === 'undefined') return;
   try {
     const url = new URL(window.location.href);
+    if (isRootOrLocalePath(url.pathname)) {
+      const targetPath = `/${locale}/`;
+      const hadQueryLang = url.searchParams.has(LOCALE_QUERY_PARAM);
+      if (url.pathname === targetPath && !hadQueryLang) return;
+      url.pathname = targetPath;
+      url.searchParams.delete(LOCALE_QUERY_PARAM);
+      window.history.replaceState(window.history.state, '', url.toString());
+      return;
+    }
     if (url.searchParams.get(LOCALE_QUERY_PARAM) === locale) return;
     url.searchParams.set(LOCALE_QUERY_PARAM, locale);
     window.history.replaceState(window.history.state, '', url.toString());
@@ -186,13 +224,20 @@ function detectBrowserLocale(): SupportedLocale | null {
 
 /**
  * Resolves the initial locale in strict priority order:
- * 1. URL query parameter (?lang=...)
- * 2. Persisted user preference (localStorage)
- * 3. Browser language list (navigator.languages -> navigator.language)
- * 4. Fallback default ('en')
+ * 1. URL path prefix (/en/, /ja/)
+ * 2. URL query parameter (?lang=...) — backwards compatible with shared links
+ * 3. Persisted user preference (localStorage)
+ * 4. Browser language list (navigator.languages -> navigator.language)
+ * 5. Fallback default ('en')
  */
 export function resolveInitialLocale(): SupportedLocale {
-  return readQueryLocale() ?? readStoredLocale() ?? detectBrowserLocale() ?? DEFAULT_LOCALE;
+  return (
+    readPathLocale() ??
+    readQueryLocale() ??
+    readStoredLocale() ??
+    detectBrowserLocale() ??
+    DEFAULT_LOCALE
+  );
 }
 
 let activeLocale: SupportedLocale = resolveInitialLocale();
@@ -327,26 +372,135 @@ export function translatePlural(
   return formatMessage(template, mergedParams);
 }
 
+function upsertMetaTag(attrName: 'name' | 'property', attrValue: string, content: string): void {
+  let tag = document.querySelector(`meta[${attrName}="${attrValue}"]`);
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute(attrName, attrValue);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute('content', content);
+}
+
+function upsertLinkTag(
+  selector: string,
+  attrs: Record<string, string>
+): void {
+  let tag = document.querySelector(selector);
+  if (!tag) {
+    tag = document.createElement('link');
+    document.head.appendChild(tag);
+  }
+  for (const [key, val] of Object.entries(attrs)) {
+    tag.setAttribute(key, val);
+  }
+}
+
 function syncDocumentMetadata(locale: SupportedLocale): void {
   if (typeof document === 'undefined') return;
   const meta = getLocaleMeta(locale);
+  const origin = getCanonicalOrigin();
+  const isExplicitLocaleUrl = Boolean(readPathLocale() || readQueryLocale());
+  const canonicalUrl = isExplicitLocaleUrl ? `${origin}/${locale}/` : `${origin}/`;
+  const ogImageUrl = `${origin}/og-image.png`;
+
   document.documentElement.lang = meta.htmlLang;
   document.documentElement.dir = meta.dir;
 
   const title = translate('meta.title', undefined, locale);
   const description = translate('meta.description', undefined, locale);
-  document.title = title;
-  document.querySelector('meta[name="description"]')?.setAttribute('content', description);
-  document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
-  document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
+  const siteName = translate('meta.siteName', undefined, locale);
+  const ogImageAlt = translate('meta.ogImageAlt', undefined, locale);
+  const appDescription = translate('meta.appDescription', undefined, locale);
 
-  let ogLocaleTag = document.querySelector('meta[property="og:locale"]');
-  if (!ogLocaleTag) {
-    ogLocaleTag = document.createElement('meta');
-    ogLocaleTag.setAttribute('property', 'og:locale');
-    document.head.appendChild(ogLocaleTag);
+  document.title = title;
+  upsertMetaTag('name', 'description', description);
+  upsertMetaTag('property', 'og:site_name', siteName);
+  upsertMetaTag('property', 'og:title', title);
+  upsertMetaTag('property', 'og:description', description);
+  upsertMetaTag('property', 'og:url', canonicalUrl);
+  upsertMetaTag('property', 'og:locale', meta.ogLocale);
+  upsertMetaTag('property', 'og:image', ogImageUrl);
+  upsertMetaTag('property', 'og:image:alt', ogImageAlt);
+  upsertMetaTag('name', 'twitter:title', title);
+  upsertMetaTag('name', 'twitter:description', description);
+  upsertMetaTag('name', 'twitter:image', ogImageUrl);
+  upsertMetaTag('name', 'twitter:image:alt', ogImageAlt);
+
+  const alternateLocale = SUPPORTED_LOCALES.find((item) => item.code !== locale);
+  if (alternateLocale) {
+    upsertMetaTag('property', 'og:locale:alternate', alternateLocale.ogLocale);
   }
-  ogLocaleTag.setAttribute('content', meta.ogLocale);
+
+  upsertLinkTag('link[rel="canonical"]', {
+    rel: 'canonical',
+    href: canonicalUrl,
+  });
+
+  for (const item of SUPPORTED_LOCALES) {
+    upsertLinkTag(`link[rel="alternate"][hreflang="${item.htmlLang}"]`, {
+      rel: 'alternate',
+      hreflang: item.htmlLang,
+      href: `${origin}/${item.code}/`,
+    });
+  }
+  upsertLinkTag('link[rel="alternate"][hreflang="x-default"]', {
+    rel: 'alternate',
+    hreflang: 'x-default',
+    href: `${origin}/`,
+  });
+
+  const faqKeys: ReadonlyArray<readonly [TranslationKey, TranslationKey]> = [
+    ['faq.q1', 'faq.a1'],
+    ['faq.q2', 'faq.a2'],
+    ['faq.q3', 'faq.a3'],
+    ['faq.q4', 'faq.a4'],
+    ['faq.q5', 'faq.a5'],
+  ];
+
+  const jsonLdPayload = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebApplication',
+        name: siteName,
+        url: canonicalUrl,
+        applicationCategory: 'MultimediaApplication',
+        operatingSystem: 'Web Browser',
+        softwareVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.0',
+        browserRequirements: 'Requires a modern web browser with HTML5 video support',
+        inLanguage: isExplicitLocaleUrl ? meta.htmlLang : SUPPORTED_LOCALES.map((item) => item.htmlLang),
+        isAccessibleForFree: true,
+        description: appDescription,
+        image: ogImageUrl,
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD',
+        },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faqKeys.map(([qKey, aKey]) => ({
+          '@type': 'Question',
+          name: translate(qKey, undefined, locale),
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: translate(aKey, undefined, locale),
+          },
+        })),
+      },
+    ],
+  };
+
+  let jsonLdScript = document.getElementById('seo-json-ld');
+  if (!jsonLdScript) {
+    jsonLdScript = document.createElement('script');
+    jsonLdScript.id = 'seo-json-ld';
+    jsonLdScript.setAttribute('type', 'application/ld+json');
+    document.head.appendChild(jsonLdScript);
+  }
+  jsonLdScript.textContent = JSON.stringify(jsonLdPayload);
 }
 
 interface I18nContextValue {
@@ -380,7 +534,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeLocale = next;
     setLocaleState(next);
     writeStoredLocale(next);
-    syncUrlQueryLocale(next);
+    syncUrlLocale(next);
   }, []);
 
   useEffect(() => {
@@ -388,14 +542,14 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     syncDocumentMetadata(locale);
   }, [locale]);
 
-  // Keep locale in sync if browser history navigates across ?lang= URLs
+  // Keep locale in sync if browser history navigates across /en/, /ja/, or ?lang= URLs
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handlePopState = () => {
-      const fromQuery = readQueryLocale();
-      if (fromQuery && fromQuery !== activeLocale) {
-        activeLocale = fromQuery;
-        setLocaleState(fromQuery);
+      const fromUrl = readPathLocale() ?? readQueryLocale();
+      if (fromUrl && fromUrl !== activeLocale) {
+        activeLocale = fromUrl;
+        setLocaleState(fromUrl);
       }
     };
     window.addEventListener('popstate', handlePopState);

@@ -1,7 +1,10 @@
 {
   "meta": {
-    "title": "YouTube Video Chapter Marker",
-    "description": "精密なフレーム対応リストとシーン検出を備えた、YouTube概要欄用チャプターテキスト（00:00:00 タイトル）作成ツール。"
+    "title": "YouTube Video Chapter Marker｜YouTubeチャプター作成・タイムスタンプ編集ツール",
+    "description": "YouTube概要欄のチャプター（00:00:00 タイトル）をブラウザだけで無料作成。ローカル動画のフレーム精度シーク・VFR対応・自動シーン検出、YouTube URLの概要欄チャプター読込と即時出力に対応。",
+    "siteName": "YouTube Video Chapter Marker",
+    "ogImageAlt": "YouTube Video Chapter Marker — ブラウザ完結・フレーム精度シーク対応の無料YouTubeチャプター作成ツール",
+    "appDescription": "ローカル動画のフレーム精度シーク・VFR対応・自動シーン検出とYouTube概要欄チャプター読込を備えた、無料のブラウザ完結型YouTubeチャプター作成ツール。"
   },
   "common": {
     "close": "閉じる",
@@ -147,7 +150,11 @@
     "frameDeltaButton": "{{delta}}f",
     "secondSkipLabel": "秒スキップ",
     "secondSkipButtonTitle": "{{delta}} 秒スキップ",
-    "secondDeltaButton": "{{delta}}s"
+    "secondDeltaButton": "{{delta}}s",
+    "muteTitle": "ミュート (Shift+M)",
+    "unmuteTitle": "ミュート解除 (Shift+M)",
+    "volumeSliderAriaLabel": "音量調整",
+    "volumePercentLabel": "音量 {{percent}}%"
   },
   "chapters": {
     "summaryMarkers": "マーク {{count}}",
@@ -276,6 +283,10 @@
     "playForward": "順方向再生",
     "keyJ": "J",
     "playReverse": "逆方向再生",
+    "keyShiftM": "Shift + M",
+    "muteToggleDesc": "ミュート / ミュート解除",
+    "keyShiftUpDown": "Shift + ↑ / ↓",
+    "volumeAdjustDesc": "音量を上げる / 下げる（±10%）",
     "groupFrameStep": "フレーム送り・スキップ",
     "step1FrameKeys": "← / → または , / .",
     "step1FrameDesc": "1フレーム逆送り / 順送り",
@@ -338,5 +349,19 @@
     "scene5Sub": "YouTube概要欄フォーマットへの即時出力",
     "overlayTimecode": "TC {{timecode}}   FRAME #{{frame}}",
     "defaultFileName": "sample_chapters_demo.{{ext}}"
+  },
+  "faq": {
+    "heading": "よくある質問（FAQ）",
+    "subheading": "YouTubeチャプターの作り方、プライバシー、対応動画形式についてまとめました。",
+    "q1": "YouTube概要欄でチャプターが正しく表示される条件は？",
+    "a1": "最初のチャプターを「00:00:00」（または「00:00」）から始め、時刻の昇順で3つ以上登録し、各チャプターを10秒以上にする必要があります。本ツールはそのまま貼り付けられる「00:00:00 タイトル」形式で自動出力します。",
+    "q2": "読み込んだローカル動画ファイルはサーバーに送信されますか？",
+    "a2": "いいえ。MP4・MOV・WebM・MKV・M4Vなどのローカル動画ファイルはすべてお使いのブラウザ内で解析・再生され、外部サーバーへアップロードされることはありません。",
+    "q3": "公開済みのYouTube動画の既存チャプターを読み込んで編集できますか？",
+    "a3": "はい。公開されているYouTubeのURLまたは11文字の動画IDを入力すると、動画再生とあわせて概要欄の既存チャプターを読み取り専用で自動取得し、時刻やタイトルを編集して出力できます。",
+    "q4": "VFR（可変フレームレート）対応とフレーム精度シークのメリットは？",
+    "a4": "画面録画やスマートフォン撮影の動画はVFRになることが多く、一般的なシークでは時刻がずれがちです。フレーム対応リストを構築することで、J/K/L再生や矢印キーの1フレーム送りでシーン切り替え位置を正確にマークできます。",
+    "q5": "ログインやインストールは必要ですか？無料で使えますか？",
+    "a5": "アカウント登録もソフトのインストールも不要で、完全無料で利用できます。ブラウザからそのまま起動でき、日本語・英語の表示切り替えにも対応しています。"
   }
 }

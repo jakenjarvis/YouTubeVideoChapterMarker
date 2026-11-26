@@ -1,27 +1,123 @@
 <!doctype html>
-<html lang="ja" class="dark">
+<html lang="en" dir="ltr" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YouTube Video Chapter Marker</title>
+    <title>YouTube Video Chapter Marker — Free Frame-Accurate Tool</title>
     <meta
       name="description"
-      content="精密なフレーム対応リストとシーン検出を備えた、YouTube概要欄用チャプターテキスト（00:00:00 タイトル）作成ツール。"
+      content="Create YouTube video chapters (00:00:00 Title) free in your browser. Frame-accurate VFR seeking, auto scene detection, YouTube import, and instant export."
     />
-    <meta property="og:title" content="YouTube Video Chapter Marker" />
+    <meta name="theme-color" content="#0D0F12" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://youtube-video-chapter-marker.vercel.app/" />
+    <link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/" />
+    <link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/" />
+    <link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/" />
+    <meta property="og:site_name" content="YouTube Video Chapter Marker" />
+    <meta property="og:title" content="YouTube Video Chapter Marker — Free Frame-Accurate Tool" />
     <meta
       property="og:description"
-      content="精密なフレーム対応リストとシーン検出を備えた、YouTube概要欄用チャプターテキスト（00:00:00 タイトル）作成ツール。"
+      content="Create YouTube video chapters (00:00:00 Title) free in your browser. Frame-accurate VFR seeking, auto scene detection, YouTube import, and instant export."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://youtube-video-chapter-marker.vercel.app/" />
     <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:image" content="https://youtube-video-chapter-marker.vercel.app/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="YouTube Video Chapter Marker — Free browser-based frame-accurate YouTube chapter timestamp editor"
+    />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="YouTube Video Chapter Marker — Free Frame-Accurate Tool" />
+    <meta
+      name="twitter:description"
+      content="Create YouTube video chapters (00:00:00 Title) free in your browser. Frame-accurate VFR seeking, auto scene detection, YouTube import, and instant export."
+    />
+    <meta name="twitter:image" content="https://youtube-video-chapter-marker.vercel.app/og-image.png" />
+    <meta
+      name="twitter:image:alt"
+      content="YouTube Video Chapter Marker — Free browser-based frame-accurate YouTube chapter timestamp editor"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script id="seo-json-ld" type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "YouTube Video Chapter Marker",
+            "url": "https://youtube-video-chapter-marker.vercel.app/",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Web Browser",
+            "browserRequirements": "Requires a modern web browser with HTML5 video support",
+            "inLanguage": ["en", "ja"],
+            "isAccessibleForFree": true,
+            "description": "Free browser-based YouTube chapter timestamp editor with VFR frame-accurate seeking, background scene detection, and YouTube description import/export.",
+            "image": "https://youtube-video-chapter-marker.vercel.app/og-image.png",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I format YouTube video chapters so they work in the description?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Start your first chapter at 00:00:00 (or 00:00), include at least 3 timestamps in ascending order, and keep each chapter at least 10 seconds long. YouTube Video Chapter Marker formats your timeline directly into ready-to-paste 00:00:00 Title lines."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are my local video files uploaded to a server?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Local video files (MP4, MOV, WebM, MKV, M4V) are analyzed and played entirely inside your browser. Your media files never leave your device."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I edit existing chapters from a published YouTube video?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Paste any public YouTube URL or 11-character video ID to load playback and automatically extract existing description chapters in read-only mode, then refine timestamps or titles and copy the updated list."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What makes frame-accurate VFR seeking useful for chapter marking?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Screen recordings and smartphone clips often use Variable Frame Rate (VFR). By building a frame correspondence map, you can step frame-by-frame or second-by-second with J/K/L and arrow keys and snap markers to exact scene transitions."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is YouTube Video Chapter Marker free to use without creating an account?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. It is completely free, requires no registration or installation, and runs directly in modern desktop browsers with both English and Japanese interfaces."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <script
       async
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8666829667737106"

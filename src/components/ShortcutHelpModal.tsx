@@ -24,6 +24,8 @@ const SHORTCUT_GROUPS: ShortcutGroupDef[] = [
       { keysKey: 'shortcuts.keySpaceOrK', descKey: 'shortcuts.playPauseToggle' },
       { keysKey: 'shortcuts.keyL', descKey: 'shortcuts.playForward' },
       { keysKey: 'shortcuts.keyJ', descKey: 'shortcuts.playReverse' },
+      { keysKey: 'shortcuts.keyShiftM', descKey: 'shortcuts.muteToggleDesc' },
+      { keysKey: 'shortcuts.keyShiftUpDown', descKey: 'shortcuts.volumeAdjustDesc' },
     ],
   },
   {
