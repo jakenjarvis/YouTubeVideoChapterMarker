@@ -1,0 +1,43 @@
+# SEO・配信アーキテクチャ・コア仕様 SSOT ガイド
+
+本ドキュメントは、静的 SEO プリレンダリング・配信ルーティング・YouTube API・アプリコア仕様に関する単一真実源（SSOT）です。
+
+---
+
+## 1. SEO・静的プリレンダリング（`vite.config.ts`）
+
+- **データ駆動生成（`generate-seo-dist` プラグイン）**:
+  - ビルド時に `SEO_LOCALES` を参照し、`dist/index.html`、各ロケールの `dist/<locale>/index.html`、`dist/robots.txt`、`dist/sitemap.xml` を自動生成する。
+  - **注意**: `dist/index.html`（ルート `/`）の生成は `SEO_LOCALES[0]` が英語（`en`）である前提で動作するため、`SEO_LOCALES` の先頭要素は `en` を維持する（もしくは明示的に `en` を検索する）。
+- **生成 HTML の必須要素**:
+  - 正しい `<html lang="..." dir="...">`、`canonical`、全言語相互 `hreflang`（+ `x-default`）
+  - `og:locale` / `og:locale:alternate`、OGP / Twitter カード（`/og-image.png`, 1200×630）
+  - `WebApplication`（`softwareVersion` = `package.json` のバージョン）+ `FAQPage`（5問）の JSON-LD
+  - 事前ハイドレーション用 HTML（見出し・機能概要・FAQ・各言語 `lang` / `dir` 付き `<nav>` リンク）
+- **静的アセットと `sitemap.xml` の同期**:
+  - `vite.config.ts` では `publicDir: false` を設定しているため、開発時は `server.ts` が `public/` を配信し、本番ビルド時は `generate-seo-dist` が `public/` のファイルを `dist/` へコピーする。
+  - 言語追加などで `sitemap.xml` が更新された際は、ビルド後に必ず `cp dist/sitemap.xml public/sitemap.xml` を実行し、開発サーバー側とも同期する。
+- **外部タグ保護**: `index.html` の Google AdSense スクリプト（`ca-pub-8666829667737106`）は絶対に削除・改変しない。
+
+---
+
+## 2. 配信ルーティング・YouTube 情報取得 API
+
+- **Node / Express（`server.ts`）**:
+  - 本番モードでは `/^\/([a-z]{2}(?:-[a-z]{2,4})?)(?:\/|$)/i` により `dist/<locale>/index.html` を自動配信する。
+- **Vercel（`vercel.json`）**:
+  - 各ロケールの `/<locale>` および `/<locale>/` を `/<locale>/index.html` へリライトする（新言語追加時に追記が必要）。
+- **YouTube 取得 API（`/api/youtube/info`：`server.ts` および `api/youtube/info.ts`）**:
+  - 公開動画のみを対象とした読み取り専用エンドポイント（SSRF 防止のため 11 文字の動画 ID 検証後に固定 YouTube オリジンへアクセス）。
+  - クエリパラメータ `hl` で選択言語を受け取り、構造化された `errorCode` / `warningCode` を返却してフロントエンド側で現在言語のメッセージへ展開する。
+
+---
+
+## 3. コア機能仕様（維持すべき不変原則）
+
+- **ローカル完結プライバシー**: ローカル動画ファイル（MP4 / MOV / WebM / MKV / M4V 等）の解析・再生・シーン検出はすべてブラウザ内で完結し、外部へ送信しない。
+- **3 秒ルール（バックグラウンド解析移行）**: ローカル動画のフレーム対応リスト構築が 3 秒を超える場合は自動的にバックグラウンド処理へ移行し、解析済み範囲から即座に編集可能にする。
+- **2 軸の完全分離**: ユーザーが作成する「マーカー＆チャプター」軸と、映像・音声変化から自動抽出する「内部シーン参考」軸は完全に分離し、内部シーンはチャプター出力へ混入させない。
+- **テキスト入出力（Type A / Type B）**:
+  - Type A: 改行区切りのタイトル一覧インポート（タイムラインへの D&D・自動割当対応）
+  - Type B: `00:00:00 タイトル`（および `MM:SS`）形式のインポート／エクスポート（クリップボードコピー・`.txt` 保存）

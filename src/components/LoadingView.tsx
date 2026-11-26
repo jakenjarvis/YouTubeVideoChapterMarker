@@ -87,7 +87,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                     count: formatNumber(progress.analyzedFrameCount),
                   })}
                 </span>
-                <span dir="ltr">
+                <span>
                   {t('loading.analyzedRange', { timecode: formatTimecodeHMS(progress.analyzedMaxTimeSec) })}
                 </span>
               </div>
@@ -105,7 +105,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                 </div>
                 <div>
                   <div className="text-xs text-[#647082] mb-1">{t('loading.metaFrameRate')}</div>
-                  <div className="text-sm font-mono-tabular font-medium text-[#F3F5F8]">
+                  <div dir="ltr" className="text-sm font-mono-tabular font-medium text-[#F3F5F8] w-fit">
                     {t('metadata.fpsValue', { fps: metadata.averageFps.toFixed(2) })}
                   </div>
                   <div className="text-xs text-[#94A0B2]">
@@ -119,10 +119,10 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                 </div>
                 <div>
                   <div className="text-xs text-[#647082] mb-1">{t('loading.metaDurationResolution')}</div>
-                  <div className="text-sm font-mono-tabular font-medium text-[#F3F5F8]">
+                  <div dir="ltr" className="text-sm font-mono-tabular font-medium text-[#F3F5F8] w-fit">
                     {formatTimecodeHMS(metadata.durationSec)}
                   </div>
-                  <div className="text-xs text-[#94A0B2] font-mono-tabular">
+                  <div dir="ltr" className="text-xs text-[#94A0B2] font-mono-tabular w-fit">
                     {metadata.width} × {metadata.height}
                   </div>
                 </div>
@@ -156,7 +156,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   {t('loading.skipToEdit')}
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                 </button>
               )}
             </div>

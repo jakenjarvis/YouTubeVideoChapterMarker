@@ -1,6 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import en from './locales/en.json';
 import ja from './locales/ja.json';
+import es from './locales/es.json';
+import ko from './locales/ko.json';
+import zhHant from './locales/zh-hant.json';
+import pt from './locales/pt.json';
+import zhHans from './locales/zh-hans.json';
+import de from './locales/de.json';
+import fr from './locales/fr.json';
+import id from './locales/id.json';
+import ar from './locales/ar.json';
 
 export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other';
 export type PluralMessage = Partial<Record<PluralCategory, string>> & { other: string };
@@ -20,6 +29,15 @@ export type LocaleDictionary = DictionaryShape<typeof ja>;
 const LOCALES = {
   en,
   ja,
+  es,
+  ko,
+  'zh-hant': zhHant,
+  pt,
+  'zh-hans': zhHans,
+  de,
+  fr,
+  id,
+  ar,
 } as const satisfies Record<string, LocaleDictionary>;
 
 export type SupportedLocale = keyof typeof LOCALES;
@@ -41,12 +59,57 @@ export interface LocaleMeta {
  */
 export const SUPPORTED_LOCALES: readonly LocaleMeta[] = [
   {
+    code: 'ar',
+    htmlLang: 'ar',
+    ogLocale: 'ar_AR',
+    dir: 'rtl',
+    nativeLabel: 'العربية',
+    shortLabel: 'ar-SA',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans Arabic", sans-serif',
+  },
+  {
+    code: 'de',
+    htmlLang: 'de',
+    ogLocale: 'de_DE',
+    dir: 'ltr',
+    nativeLabel: 'Deutsch',
+    shortLabel: 'de-DE',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
+  },
+  {
     code: 'en',
     htmlLang: 'en',
     ogLocale: 'en_US',
     dir: 'ltr',
     nativeLabel: 'English',
-    shortLabel: 'EN',
+    shortLabel: 'en-US',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
+  },
+  {
+    code: 'es',
+    htmlLang: 'es',
+    ogLocale: 'es_ES',
+    dir: 'ltr',
+    nativeLabel: 'Español',
+    shortLabel: 'es-ES',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
+  },
+  {
+    code: 'fr',
+    htmlLang: 'fr',
+    ogLocale: 'fr_FR',
+    dir: 'ltr',
+    nativeLabel: 'Français',
+    shortLabel: 'fr-FR',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
+  },
+  {
+    code: 'id',
+    htmlLang: 'id',
+    ogLocale: 'id_ID',
+    dir: 'ltr',
+    nativeLabel: 'Bahasa Indonesia',
+    shortLabel: 'id-ID',
     canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
   },
   {
@@ -55,8 +118,44 @@ export const SUPPORTED_LOCALES: readonly LocaleMeta[] = [
     ogLocale: 'ja_JP',
     dir: 'ltr',
     nativeLabel: '日本語',
-    shortLabel: 'JA',
+    shortLabel: 'ja-JP',
     canvasFontFamily: '"Noto Sans JP", "Plus Jakarta Sans", sans-serif',
+  },
+  {
+    code: 'ko',
+    htmlLang: 'ko',
+    ogLocale: 'ko_KR',
+    dir: 'ltr',
+    nativeLabel: '한국어',
+    shortLabel: 'ko-KR',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans KR", sans-serif',
+  },
+  {
+    code: 'pt',
+    htmlLang: 'pt',
+    ogLocale: 'pt_BR',
+    dir: 'ltr',
+    nativeLabel: 'Português',
+    shortLabel: 'pt-BR',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans JP", sans-serif',
+  },
+  {
+    code: 'zh-hans',
+    htmlLang: 'zh-Hans',
+    ogLocale: 'zh_CN',
+    dir: 'ltr',
+    nativeLabel: '简体中文',
+    shortLabel: 'zh-CN',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans SC", sans-serif',
+  },
+  {
+    code: 'zh-hant',
+    htmlLang: 'zh-Hant',
+    ogLocale: 'zh_TW',
+    dir: 'ltr',
+    nativeLabel: '繁體中文',
+    shortLabel: 'zh-TW',
+    canvasFontFamily: '"Plus Jakarta Sans", "Noto Sans TC", sans-serif',
   },
 ] as const;
 
@@ -67,7 +166,7 @@ const LOCALE_QUERY_PARAM = 'lang';
 
 /**
  * Future-proof BCP 47 regional/script alias map for hierarchical locale resolution
- * (e.g. zh-CN -> zh-Hans, zh-TW -> zh-Hant once Chinese dictionaries are added).
+ * (e.g. zh-CN -> zh-Hans, zh-TW -> zh-Hant, legacy 'in' -> 'id').
  */
 const BCP47_SCRIPT_ALIASES: Readonly<Record<string, string>> = {
   'zh-cn': 'zh-hans',
@@ -75,6 +174,7 @@ const BCP47_SCRIPT_ALIASES: Readonly<Record<string, string>> = {
   'zh-tw': 'zh-hant',
   'zh-hk': 'zh-hant',
   'zh-mo': 'zh-hant',
+  in: 'id',
 };
 
 const LOCALE_META_MAP: Record<SupportedLocale, LocaleMeta> = SUPPORTED_LOCALES.reduce(
@@ -123,7 +223,21 @@ export function matchSupportedLocale(rawTag: string | null | undefined): Support
     if (byAlias) return byAlias.code;
   }
 
-  const base = normalized.split('-')[0];
+  const parts = normalized.split('-');
+  if (parts.length >= 2) {
+    const langScript = `${parts[0]}-${parts[1]}`;
+    if (isSupportedLocale(langScript)) return langScript;
+    const byLangScript = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === langScript);
+    if (byLangScript) return byLangScript.code;
+    const aliasedPair = BCP47_SCRIPT_ALIASES[langScript];
+    if (aliasedPair) {
+      if (isSupportedLocale(aliasedPair)) return aliasedPair;
+      const byAliasPair = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === aliasedPair);
+      if (byAliasPair) return byAliasPair.code;
+    }
+  }
+
+  const base = parts[0];
   if (base && isSupportedLocale(base)) return base;
   const byBase = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase().split('-')[0] === base);
   return byBase ? byBase.code : null;
@@ -302,8 +416,9 @@ function selectPluralTemplate(
   locale: SupportedLocale
 ): string {
   if (typeof raw === 'string') return raw;
-  const rules = getPluralRules(locale);
   const absCount = Math.abs(count);
+  if (absCount === 0 && raw.zero !== undefined) return raw.zero;
+  const rules = getPluralRules(locale);
   const category = (rules ? rules.select(absCount) : absCount === 1 ? 'one' : 'other') as PluralCategory;
   return raw[category] ?? raw.other;
 }
@@ -427,9 +542,15 @@ function syncDocumentMetadata(locale: SupportedLocale): void {
   upsertMetaTag('name', 'twitter:image', ogImageUrl);
   upsertMetaTag('name', 'twitter:image:alt', ogImageAlt);
 
-  const alternateLocale = SUPPORTED_LOCALES.find((item) => item.code !== locale);
-  if (alternateLocale) {
-    upsertMetaTag('property', 'og:locale:alternate', alternateLocale.ogLocale);
+  document
+    .querySelectorAll('meta[property="og:locale:alternate"]')
+    .forEach((node) => node.remove());
+  for (const item of SUPPORTED_LOCALES) {
+    if (item.code === locale) continue;
+    const altTag = document.createElement('meta');
+    altTag.setAttribute('property', 'og:locale:alternate');
+    altTag.setAttribute('content', item.ogLocale);
+    document.head.appendChild(altTag);
   }
 
   upsertLinkTag('link[rel="canonical"]', {

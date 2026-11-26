@@ -12,7 +12,25 @@
     { "source": "/en", "destination": "/en/index.html" },
     { "source": "/en/", "destination": "/en/index.html" },
     { "source": "/ja", "destination": "/ja/index.html" },
-    { "source": "/ja/", "destination": "/ja/index.html" }
+    { "source": "/ja/", "destination": "/ja/index.html" },
+    { "source": "/es", "destination": "/es/index.html" },
+    { "source": "/es/", "destination": "/es/index.html" },
+    { "source": "/ko", "destination": "/ko/index.html" },
+    { "source": "/ko/", "destination": "/ko/index.html" },
+    { "source": "/zh-hant", "destination": "/zh-hant/index.html" },
+    { "source": "/zh-hant/", "destination": "/zh-hant/index.html" },
+    { "source": "/pt", "destination": "/pt/index.html" },
+    { "source": "/pt/", "destination": "/pt/index.html" },
+    { "source": "/zh-hans", "destination": "/zh-hans/index.html" },
+    { "source": "/zh-hans/", "destination": "/zh-hans/index.html" },
+    { "source": "/de", "destination": "/de/index.html" },
+    { "source": "/de/", "destination": "/de/index.html" },
+    { "source": "/fr", "destination": "/fr/index.html" },
+    { "source": "/fr/", "destination": "/fr/index.html" },
+    { "source": "/id", "destination": "/id/index.html" },
+    { "source": "/id/", "destination": "/id/index.html" },
+    { "source": "/ar", "destination": "/ar/index.html" },
+    { "source": "/ar/", "destination": "/ar/index.html" }
   ],
   "headers": [
     {

@@ -7,6 +7,22 @@
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
+  html:lang(ko) {
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans KR', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html:lang(zh-Hant) {
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html:lang(zh-Hans) {
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html:lang(ar) {
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
   html,
   body {
     font-family: var(--font-sans);

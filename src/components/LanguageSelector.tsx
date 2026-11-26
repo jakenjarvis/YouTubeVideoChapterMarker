@@ -107,7 +107,9 @@ export const LanguageSelector: React.FC = () => {
         <span className="hidden sm:inline" lang={localeMeta.htmlLang}>
           {localeMeta.nativeLabel}
         </span>
-        <span className="sm:hidden font-mono-tabular">{localeMeta.shortLabel}</span>
+        <span dir="ltr" className="sm:hidden font-mono-tabular">
+          {localeMeta.shortLabel}
+        </span>
         <ChevronDown
           className={`w-3 h-3 text-[#7D899B] transition-transform duration-150 shrink-0 ${
             isOpen ? 'rotate-180' : ''
@@ -120,7 +122,7 @@ export const LanguageSelector: React.FC = () => {
         <div
           role="listbox"
           aria-label={t('header.languageSwitcherAriaLabel')}
-          className="absolute end-0 mt-1.5 min-w-[148px] py-1 bg-[#14171C] border border-[#2C3340] rounded-lg shadow-xl z-50"
+          className="absolute end-0 mt-1.5 min-w-[208px] max-h-[70vh] overflow-y-auto py-1 bg-[#14171C] border border-[#2C3340] rounded-lg shadow-xl z-50"
         >
           {supportedLocales.map((opt, idx) => {
             const isSelected = opt.code === locale;
@@ -133,8 +135,6 @@ export const LanguageSelector: React.FC = () => {
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                lang={opt.htmlLang}
-                dir={opt.dir}
                 onClick={() => handleSelect(opt.code)}
                 onKeyDown={(e) => handleOptionKeyDown(e, idx)}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-xs text-start transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:bg-[#202631] ${
@@ -143,9 +143,11 @@ export const LanguageSelector: React.FC = () => {
                     : 'text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-[#1E232C]'
                 }`}
               >
-                <span className="truncate">{opt.nativeLabel}</span>
+                <span className="truncate" lang={opt.htmlLang} dir={opt.dir}>
+                  {opt.nativeLabel}
+                </span>
                 <span className="inline-flex items-center gap-1.5 shrink-0">
-                  <span className="font-mono-tabular text-[10px] text-[#647082]">
+                  <span dir="ltr" className="font-mono-tabular text-[10px] text-[#647082]">
                     {opt.shortLabel}
                   </span>
                   {isSelected ? (

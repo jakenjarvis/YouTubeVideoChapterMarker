@@ -419,7 +419,7 @@ async function startServer() {
     const distDir = path.resolve(__dirname, 'dist');
     app.use(express.static(distDir));
     app.get('*', (req, res) => {
-      const localeMatch = /^\/(en|ja)(?:\/|$)/i.exec(req.path);
+      const localeMatch = /^\/([a-z]{2}(?:-[a-z]{2,4})?)(?:\/|$)/i.exec(req.path);
       if (localeMatch) {
         const localeIndex = path.join(distDir, localeMatch[1].toLowerCase(), 'index.html');
         if (fs.existsSync(localeIndex)) {

@@ -182,7 +182,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
               <textarea
                 readOnly
-                dir="ltr"
+                dir={exportedText ? 'ltr' : undefined}
                 value={exportedText}
                 rows={10}
                 placeholder={t('importExport.exportPlaceholder')}

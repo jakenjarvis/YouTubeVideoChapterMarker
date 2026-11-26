@@ -40,6 +40,29 @@ interface SeoLocaleDictionary {
   };
 }
 
+interface SeoLocaleConfig {
+  code: string;
+  htmlLang: string;
+  ogLocale: string;
+  dir: 'ltr' | 'rtl';
+  nativeLabel: string;
+  dictFile: string;
+}
+
+const SEO_LOCALES: readonly SeoLocaleConfig[] = [
+  {code: 'en', htmlLang: 'en', ogLocale: 'en_US', dir: 'ltr', nativeLabel: 'English', dictFile: 'en.json'},
+  {code: 'ja', htmlLang: 'ja', ogLocale: 'ja_JP', dir: 'ltr', nativeLabel: '日本語', dictFile: 'ja.json'},
+  {code: 'es', htmlLang: 'es', ogLocale: 'es_ES', dir: 'ltr', nativeLabel: 'Español', dictFile: 'es.json'},
+  {code: 'ko', htmlLang: 'ko', ogLocale: 'ko_KR', dir: 'ltr', nativeLabel: '한국어', dictFile: 'ko.json'},
+  {code: 'zh-hant', htmlLang: 'zh-Hant', ogLocale: 'zh_TW', dir: 'ltr', nativeLabel: '繁體中文', dictFile: 'zh-hant.json'},
+  {code: 'pt', htmlLang: 'pt', ogLocale: 'pt_BR', dir: 'ltr', nativeLabel: 'Português', dictFile: 'pt.json'},
+  {code: 'zh-hans', htmlLang: 'zh-Hans', ogLocale: 'zh_CN', dir: 'ltr', nativeLabel: '简体中文', dictFile: 'zh-hans.json'},
+  {code: 'de', htmlLang: 'de', ogLocale: 'de_DE', dir: 'ltr', nativeLabel: 'Deutsch', dictFile: 'de.json'},
+  {code: 'fr', htmlLang: 'fr', ogLocale: 'fr_FR', dir: 'ltr', nativeLabel: 'Français', dictFile: 'fr.json'},
+  {code: 'id', htmlLang: 'id', ogLocale: 'id_ID', dir: 'ltr', nativeLabel: 'Bahasa Indonesia', dictFile: 'id.json'},
+  {code: 'ar', htmlLang: 'ar', ogLocale: 'ar_AR', dir: 'rtl', nativeLabel: 'العربية', dictFile: 'ar.json'},
+];
+
 const DEFAULT_SITE_URL = 'https://youtube-video-chapter-marker.vercel.app';
 
 function escapeHtml(value: string): string {
@@ -123,14 +146,16 @@ function buildPreHydrationMarkup(dict: SeoLocaleDictionary): string {
     )
     .join('');
 
+  const langNavLinks = SEO_LOCALES.map(
+    (loc) =>
+      `<a href="/${loc.code}/" hreflang="${loc.htmlLang}" lang="${loc.htmlLang}" dir="${loc.dir}" class="hover:text-[#F3F5F8]">${escapeHtml(loc.nativeLabel)}</a>`
+  ).join('');
+
   return [
     '<div class="min-h-screen bg-[#0D0F12] text-[#F3F5F8] flex flex-col">',
-    '<header class="h-12 border-b border-[#222730] bg-[#111419] px-6 flex items-center justify-between">',
+    '<header class="h-12 border-b border-[#222730] bg-[#111419] px-6 flex items-center justify-between gap-4">',
     `<span class="text-sm font-semibold tracking-tight">${escapeHtml(dict.meta.siteName)}</span>`,
-    '<nav aria-label="Language" class="flex items-center gap-4 text-xs text-[#94A0B2]">',
-    '<a href="/en/" hreflang="en" class="hover:text-[#F3F5F8]">English</a>',
-    '<a href="/ja/" hreflang="ja" class="hover:text-[#F3F5F8]">日本語</a>',
-    '</nav>',
+    `<nav aria-label="Language" class="flex flex-wrap items-center gap-3 text-xs text-[#94A0B2]">${langNavLinks}</nav>`,
     '</header>',
     '<main class="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12">',
     `<h1 class="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight">${escapeHtml(dict.loading.introHeading)}</h1>`,
@@ -148,9 +173,7 @@ function buildPreHydrationMarkup(dict: SeoLocaleDictionary): string {
 
 function renderSeoHtml(params: {
   baseHtml: string;
-  locale: 'en' | 'ja';
-  ogLocale: string;
-  ogAlternateLocale: string;
+  localeCfg: SeoLocaleConfig;
   canonicalUrl: string;
   siteUrl: string;
   appVersion: string;
@@ -160,9 +183,7 @@ function renderSeoHtml(params: {
 }): string {
   const {
     baseHtml,
-    locale,
-    ogLocale,
-    ogAlternateLocale,
+    localeCfg,
     canonicalUrl,
     siteUrl,
     appVersion,
@@ -177,9 +198,24 @@ function renderSeoHtml(params: {
   const siteNameEsc = escapeHtml(dict.meta.siteName);
   const ogAltEsc = escapeHtml(dict.meta.ogImageAlt);
 
+  const hreflangTags = [
+    ...SEO_LOCALES.map(
+      (loc) =>
+        `    <link rel="alternate" hreflang="${loc.htmlLang}" href="${escapeHtml(`${siteUrl}/${loc.code}/`)}" />`
+    ),
+    `    <link rel="alternate" hreflang="x-default" href="${escapeHtml(`${siteUrl}/`)}" />`,
+  ].join('\n');
+
+  const ogAltLocaleTags = SEO_LOCALES.filter((loc) => loc.code !== localeCfg.code)
+    .map((loc) => `    <meta property="og:locale:alternate" content="${loc.ogLocale}" />`)
+    .join('\n');
+
   let html = baseHtml;
 
-  html = html.replace(/<html\b[^>]*>/i, `<html lang="${locale}" dir="ltr" class="dark">`);
+  html = html.replace(
+    /<html\b[^>]*>/i,
+    `<html lang="${localeCfg.htmlLang}" dir="${localeCfg.dir}" class="dark">`
+  );
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${titleEsc}</title>`);
   html = html.replace(
     /<meta\s+name="description"[\s\S]*?\/>/i,
@@ -187,20 +223,15 @@ function renderSeoHtml(params: {
   );
   html = html.replace(
     /<link\s+rel="canonical"[\s\S]*?\/>/i,
-    `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`
+    `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />\n${hreflangTags}`
   );
+  // Remove any pre-existing hreflang links from template before injecting unified set
+  html = html.replace(/\s*<link\s+rel="alternate"\s+hreflang="[^"]+"[\s\S]*?\/>\s*/gi, '\n');
   html = html.replace(
-    /<link\s+rel="alternate"\s+hreflang="en"[\s\S]*?\/>/i,
-    `<link rel="alternate" hreflang="en" href="${escapeHtml(`${siteUrl}/en/`)}" />`
+    /<link\s+rel="canonical"\s+href="[^"]+"\s*\/>/i,
+    `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />\n${hreflangTags}`
   );
-  html = html.replace(
-    /<link\s+rel="alternate"\s+hreflang="ja"[\s\S]*?\/>/i,
-    `<link rel="alternate" hreflang="ja" href="${escapeHtml(`${siteUrl}/ja/`)}" />`
-  );
-  html = html.replace(
-    /<link\s+rel="alternate"\s+hreflang="x-default"[\s\S]*?\/>/i,
-    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(`${siteUrl}/`)}" />`
-  );
+
   html = html.replace(
     /<meta\s+property="og:site_name"[\s\S]*?\/>/i,
     `<meta property="og:site_name" content="${siteNameEsc}" />`
@@ -217,13 +248,10 @@ function renderSeoHtml(params: {
     /<meta\s+property="og:url"[\s\S]*?\/>/i,
     `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`
   );
+  html = html.replace(/\s*<meta\s+property="og:locale:alternate"[\s\S]*?\/>\s*/gi, '\n');
   html = html.replace(
     /<meta\s+property="og:locale"[\s\S]*?\/>/i,
-    `<meta property="og:locale" content="${ogLocale}" />`
-  );
-  html = html.replace(
-    /<meta\s+property="og:locale:alternate"[\s\S]*?\/>/i,
-    `<meta property="og:locale:alternate" content="${ogAlternateLocale}" />`
+    `<meta property="og:locale" content="${localeCfg.ogLocale}" />\n${ogAltLocaleTags}`
   );
   html = html.replace(
     /<meta\s+property="og:image"[\s\S]*?\/>/i,
@@ -271,17 +299,21 @@ function renderSeoHtml(params: {
 function buildSitemapXml(siteUrl: string): string {
   const urls = [
     {loc: `${siteUrl}/`, priority: '1.0'},
-    {loc: `${siteUrl}/en/`, priority: '0.9'},
-    {loc: `${siteUrl}/ja/`, priority: '0.9'},
+    ...SEO_LOCALES.map((loc) => ({loc: `${siteUrl}/${loc.code}/`, priority: '0.9'})),
   ];
+
+  const xhtmlLinks = [
+    ...SEO_LOCALES.map(
+      (loc) => `    <xhtml:link rel="alternate" hreflang="${loc.htmlLang}" href="${siteUrl}/${loc.code}/" />`
+    ),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/" />`,
+  ].join('\n');
 
   const entries = urls
     .map(
       ({loc, priority}) => `  <url>
     <loc>${loc}</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="${siteUrl}/en/" />
-    <xhtml:link rel="alternate" hreflang="ja" href="${siteUrl}/ja/" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/" />
+${xhtmlLinks}
     <changefreq>weekly</changefreq>
     <priority>${priority}</priority>
   </url>`
@@ -336,7 +368,7 @@ export default defineConfig(({command}) => {
         },
       },
       // Copies public/ SEO assets and generates static localized HTML pages
-      // (/index.html, /en/index.html, /ja/index.html) plus robots.txt & sitemap.xml.
+      // (/index.html + /<locale>/index.html) plus robots.txt & sitemap.xml.
       {
         name: 'generate-seo-dist',
         apply: 'build',
@@ -374,66 +406,49 @@ export default defineConfig(({command}) => {
             'utf-8'
           );
 
-          // 3. Generate prerendered SEO HTML for root (/), /en/, and /ja/
+          // 3. Generate prerendered SEO HTML for root (/) and every registered locale
           const baseHtml = fs.readFileSync(distIndexPath, 'utf-8');
-          const enDict = JSON.parse(
-            fs.readFileSync(path.resolve(__dirname, 'src/i18n/locales/en.json'), 'utf-8')
-          ) as SeoLocaleDictionary;
-          const jaDict = JSON.parse(
-            fs.readFileSync(path.resolve(__dirname, 'src/i18n/locales/ja.json'), 'utf-8')
-          ) as SeoLocaleDictionary;
+          const dicts = new Map<string, SeoLocaleDictionary>();
+          for (const loc of SEO_LOCALES) {
+            const dictPath = path.resolve(__dirname, 'src/i18n/locales', loc.dictFile);
+            dicts.set(loc.code, JSON.parse(fs.readFileSync(dictPath, 'utf-8')) as SeoLocaleDictionary);
+          }
 
-          const rootHtml = renderSeoHtml({
-            baseHtml,
-            locale: 'en',
-            ogLocale: 'en_US',
-            ogAlternateLocale: 'ja_JP',
-            canonicalUrl: `${siteUrl}/`,
-            siteUrl,
-            appVersion,
-            dict: enDict,
-            isSubdir: false,
-            inLanguage: ['en', 'ja'],
-          });
-          fs.writeFileSync(distIndexPath, rootHtml, 'utf-8');
-
-          const enDir = path.join(distDir, 'en');
-          fs.mkdirSync(enDir, {recursive: true});
+          const enCfg = SEO_LOCALES[0];
+          const enDict = dicts.get(enCfg.code)!;
           fs.writeFileSync(
-            path.join(enDir, 'index.html'),
+            distIndexPath,
             renderSeoHtml({
               baseHtml,
-              locale: 'en',
-              ogLocale: 'en_US',
-              ogAlternateLocale: 'ja_JP',
-              canonicalUrl: `${siteUrl}/en/`,
+              localeCfg: enCfg,
+              canonicalUrl: `${siteUrl}/`,
               siteUrl,
               appVersion,
               dict: enDict,
-              isSubdir: true,
-              inLanguage: 'en',
+              isSubdir: false,
+              inLanguage: SEO_LOCALES.map((loc) => loc.htmlLang),
             }),
             'utf-8'
           );
 
-          const jaDir = path.join(distDir, 'ja');
-          fs.mkdirSync(jaDir, {recursive: true});
-          fs.writeFileSync(
-            path.join(jaDir, 'index.html'),
-            renderSeoHtml({
-              baseHtml,
-              locale: 'ja',
-              ogLocale: 'ja_JP',
-              ogAlternateLocale: 'en_US',
-              canonicalUrl: `${siteUrl}/ja/`,
-              siteUrl,
-              appVersion,
-              dict: jaDict,
-              isSubdir: true,
-              inLanguage: 'ja',
-            }),
-            'utf-8'
-          );
+          for (const loc of SEO_LOCALES) {
+            const locDir = path.join(distDir, loc.code);
+            fs.mkdirSync(locDir, {recursive: true});
+            fs.writeFileSync(
+              path.join(locDir, 'index.html'),
+              renderSeoHtml({
+                baseHtml,
+                localeCfg: loc,
+                canonicalUrl: `${siteUrl}/${loc.code}/`,
+                siteUrl,
+                appVersion,
+                dict: dicts.get(loc.code)!,
+                isSubdir: true,
+                inLanguage: loc.htmlLang,
+              }),
+              'utf-8'
+            );
+          }
         },
       },
     ],

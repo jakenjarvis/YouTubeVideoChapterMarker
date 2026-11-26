@@ -296,6 +296,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                       <div className="mt-1.5 flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span
+                            dir="ltr"
                             className={`font-mono-tabular text-[10px] ${
                               isCurrent || isLastSelected ? 'text-amber-400/90 font-semibold' : 'text-[#566071]'
                             }`}
@@ -534,7 +535,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
         </div>
 
         {unassignedTitles.length > 0 && (
-          <div className="max-h-36 overflow-y-auto space-y-1 mb-2.5 pr-0.5">
+          <div className="max-h-36 overflow-y-auto space-y-1 mb-2.5 pe-0.5">
             {unassignedTitles.map((title, uIdx) => (
               <div
                 key={title.id}
@@ -595,7 +596,7 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
                       title={t('chapters.assignToFirstEmptyTooltip')}
                       className="p-1 text-[#94A0B2] hover:text-amber-300 rounded cursor-pointer"
                     >
-                      <CornerDownRight className="w-3 h-3" />
+                      <CornerDownRight className="w-3 h-3 rtl:scale-x-[-1]" />
                     </button>
                   )}
                   <button
