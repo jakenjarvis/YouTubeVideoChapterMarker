@@ -24,8 +24,8 @@
    - `index.html` の Google AdSense スクリプト（`ca-pub-8666829667737106`）を削除・改変しない。
    - `metadata.json` のアプリ名・権限や、既存言語・編集ワークフローを破壊しない。
 4. **変更後の必須検証**
-   - `npm run build` および `npm run lint`（`tsc --noEmit`）の両方をエラーゼロで通す。
-   - 言語・SEO・ルーティング変更時は、辞書パリティ・生成 HTML・`public/sitemap.xml` 同期・開発サーバーの HTTP 200 まで確認する。
+   - `npm run lint`（`tsc --noEmit`）、`npm test`、`npm run build`、`npm run test:build` のすべてをエラーゼロで通す（GitHub Actions `.github/workflows/ci.yml` でも同じチェックが実行される）。
+   - 言語・SEO・ルーティング変更時は、`public/sitemap.xml` 同期および開発サーバーの HTTP 200 まで確認する。
 
 ---
 
