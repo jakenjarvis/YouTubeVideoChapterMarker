@@ -46,7 +46,10 @@
     "importExportText": "Import / Export",
     "openVideo": "Open Video",
     "languageSwitcherAriaLabel": "Select display language",
-    "selectLanguage": "Language"
+    "selectLanguage": "Language",
+    "githubRepoLabel": "OSS",
+    "githubRepoTitle": "Open GitHub repository (Apache-2.0 Open Source)",
+    "githubRepoAriaLabel": "View open-source repository on GitHub"
   },
   "workspace": {
     "mute": "Mute",

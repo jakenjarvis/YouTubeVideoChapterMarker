@@ -46,7 +46,10 @@
     "importExportText": "テキスト入出力",
     "openVideo": "動画を開く",
     "languageSwitcherAriaLabel": "表示言語を選択",
-    "selectLanguage": "言語"
+    "selectLanguage": "言語",
+    "githubRepoLabel": "OSS",
+    "githubRepoTitle": "GitHubリポジトリを開く（Apache-2.0 オープンソース）",
+    "githubRepoAriaLabel": "GitHubでオープンソースリポジトリを開く"
   },
   "workspace": {
     "mute": "ミュート",
