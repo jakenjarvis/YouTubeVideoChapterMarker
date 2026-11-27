@@ -18,11 +18,19 @@ describe('Project configuration invariants', () => {
     assert.equal(metadata.name, 'Video Chapter Marker');
   });
 
-  it('preserves Google AdSense script in index.html', () => {
+  it('preserves Google AdSense and Google Analytics (GTM) scripts in index.html', () => {
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     assert.ok(
       html.includes('ca-pub-8666829667737106'),
       'Google AdSense script must be preserved in index.html'
+    );
+    assert.ok(
+      html.includes('https://www.googletagmanager.com/gtm.js?id=GTM-W8NKMDP7'),
+      'Google Analytics / GTM script must be preserved in index.html'
+    );
+    assert.ok(
+      html.includes("gtag('js', new Date());"),
+      'gtag initialization snippet must be preserved in index.html'
     );
   });
 
@@ -48,7 +56,11 @@ describe('Project configuration invariants', () => {
 describe('Built dist/ SEO & static asset integrity', () => {
   it('verifies dist/index.html, robots.txt, sitemap.xml, and GSC file exist and are valid', () => {
     assert.ok(fs.existsSync(DIST_DIR), 'dist/ directory missing — run npm run build first');
-    assert.ok(fs.existsSync(path.join(DIST_DIR, 'index.html')));
+    const rootHtml = fs.readFileSync(path.join(DIST_DIR, 'index.html'), 'utf8');
+    assert.ok(
+      rootHtml.includes('https://www.googletagmanager.com/gtm.js?id=GTM-W8NKMDP7'),
+      'GTM script missing in dist/index.html'
+    );
     assert.ok(fs.existsSync(path.join(DIST_DIR, 'robots.txt')));
     assert.ok(fs.existsSync(path.join(DIST_DIR, 'sitemap.xml')));
 
@@ -79,6 +91,10 @@ describe('Built dist/ SEO & static asset integrity', () => {
         `[${loc.code}] Incorrect <html lang/dir>`
       );
       assert.ok(html.includes('ca-pub-8666829667737106'), `[${loc.code}] AdSense missing`);
+      assert.ok(
+        html.includes('https://www.googletagmanager.com/gtm.js?id=GTM-W8NKMDP7'),
+        `[${loc.code}] GTM script missing`
+      );
       assert.ok(
         html.includes(`"softwareVersion":"${PKG.version}"`),
         `[${loc.code}] JSON-LD softwareVersion mismatch (expected ${PKG.version})`

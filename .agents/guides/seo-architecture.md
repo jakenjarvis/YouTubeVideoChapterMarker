@@ -18,6 +18,7 @@
   - `vite.config.ts` では `publicDir: false` を設定しているため、開発時は `server.ts` が `public/` を配信し、本番ビルド時は `generate-seo-dist` が `public/` のファイルを `dist/` へコピーする。
   - 言語追加などで `sitemap.xml` が更新された際は、ビルド後に必ず `cp dist/sitemap.xml public/sitemap.xml` を実行し、開発サーバー側とも同期する。
 - **外部タグ・所有権確認ファイルの保護**:
+  - `index.html` の Google アナリティクス / タグマネージャー スクリプト（`GTM-W8NKMDP7`）を削除・改変しない。
   - `index.html` の Google AdSense スクリプト（`ca-pub-8666829667737106`）は絶対に削除・改変しない。
   - Google Search Console 所有権確認ファイル（`public/googleb5dcf5082a5a4463.html` → ビルド時 `dist/googleb5dcf5082a5a4463.html`、URL `/googleb5dcf5082a5a4463.html`）を削除・改変しない。
 
