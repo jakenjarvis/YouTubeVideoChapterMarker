@@ -293,4 +293,71 @@ describe('exportChapterText & validateYouTubeChapters', () => {
     assert.equal(invalid.hasMinimumIntervals, false);
     assert.equal(invalid.isValid, false);
   });
+
+  it('handles edge cases: zero-width chars, CR/CRLF endings, mismatched brackets, non-finite values, and exact 10s intervals', () => {
+    // Zero-width BOM/ZWSP edges & mixed CR / CRLF line endings
+    const messyInput =
+      '\uFEFF00:00 Intro\u200B\r\n' +
+      '\u200B00:10 Main\r' +
+      '[00:20) Mismatched Brackets Should Be Title Only\r\n' +
+      '00:30:00\u2060';
+    const parsed = parseChapterTextLines(messyInput);
+    assert.equal(parsed.chapterCount, 2);
+    assert.equal(parsed.titleOnlyCount, 1);
+    assert.equal(parsed.markerOnlyCount, 1);
+    assert.equal(parsed.lines[0].title, 'Intro');
+    assert.equal(parsed.lines[1].title, 'Main');
+    assert.equal(parsed.lines[2].kind, 'title-only');
+    assert.equal(parsed.lines[3].timeSec, 1800);
+
+    // Non-finite inputs must always produce strict ASCII 00:00:00 / 00:00
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0, -999]) {
+      assert.equal(formatTimecodeHMS(bad), '00:00:00');
+      assert.equal(formatTimecodeByStyle(bad, 'mm:ss'), '00:00');
+      assert.match(formatTimecodeByStyle(bad, 'hh:mm:ss'), /^[0-9:]+$/);
+    }
+
+    // Exact 10-second intervals (0s, 10s, 20s) are valid for YouTube
+    const exact10Markers: Marker[] = [
+      { id: 'e1', frameIndex: 0, timeSec: 0 },
+      { id: 'e2', frameIndex: 10, timeSec: 10 },
+      { id: 'e3', frameIndex: 20, timeSec: 20 },
+    ];
+    const exact10Titles: ChapterTitle[] = [
+      { id: 'et1', text: 'One', assignedMarkerId: 'e1', unassignedOrder: 0 },
+      { id: 'et2', text: 'Two', assignedMarkerId: 'e2', unassignedOrder: 0 },
+      { id: 'et3', text: 'Three', assignedMarkerId: 'e3', unassignedOrder: 0 },
+    ];
+    const exactCheck = validateYouTubeChapters(exact10Markers, exact10Titles, {
+      timeFormat: 'mm:ss',
+      layout: 'time-space-title',
+    });
+    assert.equal(exactCheck.isValid, true);
+    assert.equal(exactCheck.hasMinimumIntervals, true);
+
+    // 9-second interval (0s, 9s, 20s) fails minimum interval rule
+    const nineSecMarkers: Marker[] = [
+      { id: 'n1', frameIndex: 0, timeSec: 0 },
+      { id: 'n2', frameIndex: 9, timeSec: 9 },
+      { id: 'n3', frameIndex: 20, timeSec: 20 },
+    ];
+    const nineSecTitles: ChapterTitle[] = [
+      { id: 'nt1', text: 'One', assignedMarkerId: 'n1', unassignedOrder: 0 },
+      { id: 'nt2', text: 'Two', assignedMarkerId: 'n2', unassignedOrder: 0 },
+      { id: 'nt3', text: 'Three', assignedMarkerId: 'n3', unassignedOrder: 0 },
+    ];
+    const nineCheck = validateYouTubeChapters(nineSecMarkers, nineSecTitles, {
+      timeFormat: 'mm:ss',
+      layout: 'time-space-title',
+    });
+    assert.equal(nineCheck.hasMinimumIntervals, false);
+    assert.equal(nineCheck.isValid, false);
+
+    // Empty markers export safely to empty string
+    assert.equal(
+      exportChapterText([], [], { timeFormat: 'auto', layout: 'time-space-title' }),
+      ''
+    );
+  });
 });
+

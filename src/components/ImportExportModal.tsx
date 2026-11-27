@@ -14,6 +14,7 @@ import type { ChapterTitle, Marker } from '../types/video';
 import {
   exportChapterText,
   parseChapterTextLines,
+  sanitizeExportBaseName,
   validateYouTubeChapters,
   type ExportLineLayout,
   type ExportTimeFormat,
@@ -176,10 +177,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
   const handleDownloadTxt = () => {
     if (!exportedText) return;
-    const rawBase = fileName
-      ? fileName.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_').trim()
-      : '';
-    const baseName = rawBase || t('importExport.defaultExportBaseName');
+    const baseName = sanitizeExportBaseName(fileName, t('importExport.defaultExportBaseName'));
     const blob = new Blob([exportedText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

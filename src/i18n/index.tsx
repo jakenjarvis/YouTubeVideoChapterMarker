@@ -196,8 +196,11 @@ type NestedKeyOf<T> = {
 export type TranslationKey = NestedKeyOf<LocaleDictionary>;
 export type TranslationParams = Record<string, string | number>;
 
+const hasOwn = (obj: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
 function isSupportedLocale(value: string): value is SupportedLocale {
-  return Object.prototype.hasOwnProperty.call(LOCALES, value);
+  return hasOwn(LOCALES, value);
 }
 
 /**
@@ -207,7 +210,7 @@ function isSupportedLocale(value: string): value is SupportedLocale {
  * 3. Base language subtag match (e.g. "en-US" -> "en", "ja-JP" -> "ja")
  */
 export function matchSupportedLocale(rawTag: string | null | undefined): SupportedLocale | null {
-  if (!rawTag) return null;
+  if (!rawTag || typeof rawTag !== 'string' || rawTag.length > 64) return null;
   const normalized = rawTag.trim().replace(/_/g, '-').toLowerCase();
   if (!normalized) return null;
 
@@ -216,7 +219,9 @@ export function matchSupportedLocale(rawTag: string | null | undefined): Support
   const byHtmlLang = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === normalized);
   if (byHtmlLang) return byHtmlLang.code;
 
-  const aliased = BCP47_SCRIPT_ALIASES[normalized];
+  const aliased = hasOwn(BCP47_SCRIPT_ALIASES, normalized)
+    ? BCP47_SCRIPT_ALIASES[normalized]
+    : undefined;
   if (aliased) {
     if (isSupportedLocale(aliased)) return aliased;
     const byAlias = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === aliased);
@@ -229,7 +234,9 @@ export function matchSupportedLocale(rawTag: string | null | undefined): Support
     if (isSupportedLocale(langScript)) return langScript;
     const byLangScript = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === langScript);
     if (byLangScript) return byLangScript.code;
-    const aliasedPair = BCP47_SCRIPT_ALIASES[langScript];
+    const aliasedPair = hasOwn(BCP47_SCRIPT_ALIASES, langScript)
+      ? BCP47_SCRIPT_ALIASES[langScript]
+      : undefined;
     if (aliasedPair) {
       if (isSupportedLocale(aliasedPair)) return aliasedPair;
       const byAliasPair = SUPPORTED_LOCALES.find((m) => m.htmlLang.toLowerCase() === aliasedPair);
@@ -361,7 +368,7 @@ export function getActiveLocale(): SupportedLocale {
 }
 
 export function getLocaleMeta(locale: SupportedLocale = activeLocale): LocaleMeta {
-  return LOCALE_META_MAP[locale] ?? LOCALE_META_MAP[DEFAULT_LOCALE];
+  return hasOwn(LOCALE_META_MAP, locale) ? LOCALE_META_MAP[locale] : LOCALE_META_MAP[DEFAULT_LOCALE];
 }
 
 export function getActiveLocaleMeta(): LocaleMeta {
@@ -389,7 +396,7 @@ function isPluralMessage(value: unknown): value is PluralMessage {
   return (
     typeof value === 'object' &&
     value !== null &&
-    'other' in value &&
+    hasOwn(value as object, 'other') &&
     typeof (value as Record<string, unknown>).other === 'string'
   );
 }
@@ -398,7 +405,11 @@ function lookupRawMessage(dict: LocaleDictionary, key: TranslationKey): MessageV
   const parts = key.split('.');
   let current: unknown = dict;
   for (const part of parts) {
-    if (current && typeof current === 'object' && part in current) {
+    if (
+      current &&
+      typeof current === 'object' &&
+      hasOwn(current as object, part)
+    ) {
       current = (current as Record<string, unknown>)[part];
     } else {
       return null;
@@ -416,17 +427,18 @@ function selectPluralTemplate(
   locale: SupportedLocale
 ): string {
   if (typeof raw === 'string') return raw;
-  const absCount = Math.abs(count);
-  if (absCount === 0 && raw.zero !== undefined) return raw.zero;
+  const safeCount = Number.isFinite(count) ? count : 0;
+  const absCount = Math.abs(safeCount);
+  if (absCount === 0 && hasOwn(raw, 'zero') && raw.zero !== undefined) return raw.zero;
   const rules = getPluralRules(locale);
   const category = (rules ? rules.select(absCount) : absCount === 1 ? 'one' : 'other') as PluralCategory;
-  return raw[category] ?? raw.other;
+  return (hasOwn(raw, category) ? raw[category] : undefined) ?? raw.other;
 }
 
 function formatMessage(template: string, params?: TranslationParams): string {
   if (!params) return template;
   return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) =>
-    name in params ? String(params[name]) : match
+    hasOwn(params, name) ? String(params[name]) : match
   );
 }
 
@@ -456,12 +468,13 @@ export function translate(
   params?: TranslationParams,
   locale: SupportedLocale = activeLocale
 ): string {
-  const dict = LOCALES[locale] ?? LOCALES[DEFAULT_LOCALE];
+  const safeLocale: SupportedLocale = isSupportedLocale(locale) ? locale : DEFAULT_LOCALE;
+  const dict = LOCALES[safeLocale];
   const raw = lookupRawMessage(dict, key) ?? lookupRawMessage(LOCALES[DEFAULT_LOCALE], key);
   if (raw === null) return key;
 
   const countCandidate = params && typeof params.count === 'number' ? params.count : 0;
-  const template = selectPluralTemplate(raw, countCandidate, locale);
+  const template = selectPluralTemplate(raw, countCandidate, safeLocale);
   return formatMessage(template, params);
 }
 
@@ -475,15 +488,16 @@ export function translatePlural(
   params?: TranslationParams,
   locale: SupportedLocale = activeLocale
 ): string {
-  const dict = LOCALES[locale] ?? LOCALES[DEFAULT_LOCALE];
+  const safeLocale: SupportedLocale = isSupportedLocale(locale) ? locale : DEFAULT_LOCALE;
+  const dict = LOCALES[safeLocale];
   const raw = lookupRawMessage(dict, key) ?? lookupRawMessage(LOCALES[DEFAULT_LOCALE], key);
   if (raw === null) return key;
 
-  const template = selectPluralTemplate(raw, count, locale);
+  const template = selectPluralTemplate(raw, count, safeLocale);
   const mergedParams: TranslationParams =
-    params && 'count' in params
+    params && hasOwn(params, 'count')
       ? params
-      : { count: formatLocalizedNumber(count, undefined, locale), ...params };
+      : { count: formatLocalizedNumber(count, undefined, safeLocale), ...params };
   return formatMessage(template, mergedParams);
 }
 

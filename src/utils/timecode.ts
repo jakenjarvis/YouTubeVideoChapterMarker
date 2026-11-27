@@ -203,20 +203,22 @@ const MATCHING_CLOSING_BRACKET: Record<string, string> = {
   '「': '」',
 };
 
+const ZERO_WIDTH_EDGE_RE = /^[\s\u200B-\u200D\u2060\uFEFF]+|[\s\u200B-\u200D\u2060\uFEFF]+$/g;
+
 /**
  * Parses a single non-empty line into a timed chapter, marker-only timestamp, or title-only entry.
- * Preserves brackets/parentheses inside titles (e.g. "ドットーレの地下室(21) プレイ[J]").
+ * Uses linear-time boundary matching (ReDoS-safe) and preserves brackets inside titles (e.g. "(21)", "[J]").
  */
 export function parseSingleChapterLine(
   rawLine: string,
   lineNumber: number
 ): ParsedChapterLine | null {
-  const line = rawLine.trim();
+  const line = rawLine.replace(ZERO_WIDTH_EDGE_RE, '');
   if (!line) return null;
 
   // 1. Leading timestamp: optional bullet/index, optional wrapping bracket, timestamp, optional range end, title
   const leadingRe =
-    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?(.*)$/;
+    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/;
   const leadMatch = leadingRe.exec(line);
   if (leadMatch) {
     const openBr = leadMatch[1] ?? '';
@@ -239,7 +241,7 @@ export function parseSingleChapterLine(
       if (timeSec !== null) {
         // Handle optional range end timestamp: e.g. "00:00 - 01:30 Title" -> take start time
         const rangeMatch =
-          /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?(.*)$/.exec(
+          /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/.exec(
             rest
           );
         if (rangeMatch) {
@@ -269,30 +271,40 @@ export function parseSingleChapterLine(
     }
   }
 
-  // 2. Trailing timestamp: e.g. "Intro 00:00", "Intro - 04:56", "Intro (01:47:50)", "Intro [00:30]"
+  // 2. Trailing timestamp (linear-time right-anchored extraction; immune to ReDoS backtracking)
+  // e.g. "Intro 00:00", "Intro - 04:56", "Intro (01:47:50)", "Intro [00:30]"
   if (!/^https?:\/\//i.test(line)) {
-    const trailingRe =
-      /^(.+?)[\s\u3000\-–—|｜:：]+(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:\s*([\])】』」]))?$/;
-    const trailMatch = trailingRe.exec(line);
-    if (trailMatch && !/https?:\/\//i.test(trailMatch[1])) {
-      const rawTitle = trailMatch[1];
-      const openBr = trailMatch[2] ?? '';
-      const timeToken = trailMatch[3];
-      const closeBr = trailMatch[4] ?? '';
+    const tailWindowStart = Math.max(0, line.length - 48);
+    const tailSlice = line.slice(tailWindowStart);
+    const endTokenRe =
+      /(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?(?:\.\d{1,3})?)(?:[ \t\u3000]*([\])】』」]))?$/;
+    const endMatch = endTokenRe.exec(tailSlice);
+    if (endMatch && endMatch.index > 0) {
+      const tokenStartInLine = tailWindowStart + endMatch.index;
+      const charBefore = line[tokenStartInLine - 1];
+      const openBr = endMatch[1] ?? '';
+      const timeToken = endMatch[2];
+      const closeBr = endMatch[3] ?? '';
       const bracketsValid =
         (!openBr && !closeBr) ||
         (Boolean(openBr) && closeBr === MATCHING_CLOSING_BRACKET[openBr]);
-      if (bracketsValid) {
-        const timeSec = parseTimestampToSeconds(timeToken);
-        if (timeSec !== null) {
-          const title = rawTitle.replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
-          if (title.length > 0) {
-            return {
-              lineNumber,
-              kind: 'chapter',
-              timeSec,
-              title,
-            };
+      const sepValid =
+        tokenStartInLine > 0 && /[\s\u3000\-–—|｜:：]/.test(charBefore);
+
+      if (bracketsValid && sepValid) {
+        const rawTitle = line.slice(0, tokenStartInLine);
+        if (!/https?:\/\//i.test(rawTitle)) {
+          const timeSec = parseTimestampToSeconds(timeToken);
+          if (timeSec !== null) {
+            const title = rawTitle.replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+            if (title.length > 0) {
+              return {
+                lineNumber,
+                kind: 'chapter',
+                timeSec,
+                title,
+              };
+            }
           }
         }
       }
@@ -313,7 +325,7 @@ export function parseSingleChapterLine(
  * Handles mixed inputs containing timed chapters, timestamp-only markers, and title-only lines.
  */
 export function parseChapterTextLines(raw: string): UnifiedChapterImportParseResult {
-  const rawLines = raw.split(/\r?\n/);
+  const rawLines = raw.split(/\r\n|\n|\r/);
   const lines: ParsedChapterLine[] = [];
   let chapterCount = 0;
   let markerOnlyCount = 0;
@@ -432,6 +444,28 @@ export function validateYouTubeChapters(
     hasMinimumIntervals,
     isValid: !isTitleFirstLayout && startsAtZero && hasMinimumCount && hasMinimumIntervals,
   };
+}
+
+const WINDOWS_RESERVED_NAME_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+/**
+ * Sanitizes a video filename into a safe cross-platform download base name.
+ * Strips path separators, traversal dots, control characters, and Windows reserved device names.
+ */
+export function sanitizeExportBaseName(raw: string | null | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  const withoutExt = raw.replace(/\.[^./\\]+$/, '');
+  const cleaned = withoutExt
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\.{2,}/g, '_')
+    .replace(/^\.+|\.+$/g, '')
+    .trim()
+    .slice(0, 120);
+  if (!cleaned || /^_+$/.test(cleaned) || WINDOWS_RESERVED_NAME_RE.test(cleaned)) {
+    return fallback;
+  }
+  return cleaned;
 }
 
 export function createId(prefix: string): string {

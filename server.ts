@@ -370,9 +370,11 @@ async function fetchYouTubeVideoInfo(videoId: string, hl = 'ja'): Promise<YouTub
 
 async function startServer() {
   const app = express();
+  app.disable('x-powered-by');
 
   // Read-only YouTube metadata & description chapter extraction endpoint
   app.get('/api/youtube/info', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
     const rawHl = typeof req.query.hl === 'string' ? req.query.hl : 'ja';
     const videoId = extractYouTubeVideoId(rawUrl);
@@ -391,7 +393,9 @@ async function startServer() {
       const errorCode =
         err instanceof YouTubeApiError ? err.code : 'YOUTUBE_LOAD_FAILED';
       const message =
-        err instanceof Error ? err.message : 'YouTube動画の読み込み中にエラーが発生しました。';
+        err instanceof YouTubeApiError
+          ? err.message
+          : 'YouTube動画の読み込み中にエラーが発生しました。';
       res.status(502).json({ errorCode, error: message });
     }
   });
@@ -421,8 +425,8 @@ async function startServer() {
     app.get('*', (req, res) => {
       const localeMatch = /^\/([a-z]{2}(?:-[a-z]{2,4})?)(?:\/|$)/i.exec(req.path);
       if (localeMatch) {
-        const localeIndex = path.join(distDir, localeMatch[1].toLowerCase(), 'index.html');
-        if (fs.existsSync(localeIndex)) {
+        const localeIndex = path.resolve(distDir, localeMatch[1].toLowerCase(), 'index.html');
+        if (localeIndex.startsWith(distDir + path.sep) && fs.existsSync(localeIndex)) {
           res.sendFile(localeIndex);
           return;
         }

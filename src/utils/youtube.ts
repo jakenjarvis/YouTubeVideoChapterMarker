@@ -47,11 +47,19 @@ const ALLOWED_YOUTUBE_HOSTS = new Set([
   'www.youtube-nocookie.com',
 ]);
 
+const MAX_YOUTUBE_INPUT_LENGTH = 2048;
+
 /**
  * Strictly extracts and validates an 11-character YouTube Video ID from a URL or raw ID.
- * Returns null for any non-YouTube host or invalid format.
+ * Rejects non-YouTube hosts, embedded credentials, non-standard ports, control characters, and oversized inputs.
  */
 export function extractYouTubeVideoId(rawInput: string): string | null {
+  if (!rawInput || typeof rawInput !== 'string' || rawInput.length > MAX_YOUTUBE_INPUT_LENGTH) {
+    return null;
+  }
+  if (/[\x00-\x1f\x7f]/.test(rawInput)) {
+    return null;
+  }
   const trimmed = rawInput.trim();
   if (!trimmed) return null;
 
@@ -71,6 +79,14 @@ export function extractYouTubeVideoId(rawInput: string): string | null {
     return null;
   }
 
+  if (parsed.username || parsed.password) {
+    return null;
+  }
+
+  if (parsed.port && parsed.port !== '443' && parsed.port !== '80') {
+    return null;
+  }
+
   const hostname = parsed.hostname.toLowerCase();
   if (!ALLOWED_YOUTUBE_HOSTS.has(hostname)) {
     return null;
@@ -79,8 +95,8 @@ export function extractYouTubeVideoId(rawInput: string): string | null {
   let candidate: string | null = null;
 
   if (hostname === 'youtu.be' || hostname === 'www.youtu.be') {
-    const seg = parsed.pathname.split('/').filter(Boolean)[0];
-    candidate = seg ?? null;
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    candidate = segments.length === 1 ? segments[0] : null;
   } else {
     const vParam = parsed.searchParams.get('v');
     if (vParam) {
@@ -126,10 +142,13 @@ const MATCHING_BRACKET_END: Record<string, string> = {
   '「': '」',
 };
 
+const ZERO_WIDTH_EDGE_RE = /^[\s\u200B-\u200D\u2060\uFEFF]+|[\s\u200B-\u200D\u2060\uFEFF]+$/g;
+
 /**
  * Extracts timestamped chapter entries from a YouTube video description.
- * Supports leading timestamps ("00:00:00 Title", "0:00 - Title", "1. 0:00 Title", "0:00 - 1:30 Title", "[00:00] Title", "【00:00】Title")
- * as well as trailing timestamps ("Title 00:00", "Title - 00:00", "Title (00:00)").
+ * Linear-time (ReDoS-safe) parser supporting leading timestamps ("00:00:00 Title", "0:00 - Title",
+ * "1. 0:00 Title", "0:00 - 1:30 Title", "[00:00] Title", "【00:00】Title") and trailing timestamps
+ * ("Title 00:00", "Title - 00:00", "Title (00:00)").
  */
 export function parseChaptersFromDescription(
   description: string,
@@ -137,18 +156,18 @@ export function parseChaptersFromDescription(
 ): ParsedYouTubeChapter[] {
   if (!description || !description.trim()) return [];
 
-  const lines = description.split(/\r?\n/);
+  const lines = description.split(/\r\n|\n|\r/);
   const extracted: ParsedYouTubeChapter[] = [];
   const seenSeconds = new Set<number>();
 
   const leadingRe =
-    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?(.*)$/;
+    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/;
 
-  const trailingRe =
-    /^(.+?)[\s\u3000\-–—|｜:：]+(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?$/;
+  const endTokenRe =
+    /(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?$/;
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    const line = rawLine.replace(ZERO_WIDTH_EDGE_RE, '');
     if (!line) continue;
     if (/^https?:\/\//i.test(line)) continue;
 
@@ -172,7 +191,7 @@ export function parseChaptersFromDescription(
         const parsed = parseTimestampToken(leadMatch[2]);
         if (parsed !== null) {
           const rangeMatch =
-            /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])\s*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:\s*([\])】』」]))?(.*)$/.exec(
+            /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/.exec(
               rest
             );
           if (rangeMatch) {
@@ -197,18 +216,26 @@ export function parseChaptersFromDescription(
     }
 
     if (timeSec === null) {
-      const trailMatch = trailingRe.exec(line);
-      if (trailMatch && !/https?:\/\//i.test(trailMatch[1])) {
-        const openBr = trailMatch[2] ?? '';
-        const closeBr = trailMatch[4] ?? '';
+      const tailWindowStart = Math.max(0, line.length - 48);
+      const tailSlice = line.slice(tailWindowStart);
+      const endMatch = endTokenRe.exec(tailSlice);
+      if (endMatch && endMatch.index > 0) {
+        const tokenStartInLine = tailWindowStart + endMatch.index;
+        const charBefore = line[tokenStartInLine - 1];
+        const openBr = endMatch[1] ?? '';
+        const closeBr = endMatch[3] ?? '';
         const bracketsValid =
           (!openBr && !closeBr) ||
           (Boolean(openBr) && closeBr === MATCHING_BRACKET_END[openBr]);
-        if (bracketsValid) {
-          const parsed = parseTimestampToken(trailMatch[3]);
-          if (parsed !== null) {
-            timeSec = parsed;
-            title = trailMatch[1].replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+        const sepValid = tokenStartInLine > 0 && /[\s\u3000\-–—|｜:：]/.test(charBefore);
+        if (bracketsValid && sepValid) {
+          const rawTitle = line.slice(0, tokenStartInLine);
+          if (!/https?:\/\//i.test(rawTitle)) {
+            const parsed = parseTimestampToken(endMatch[2]);
+            if (parsed !== null) {
+              timeSec = parsed;
+              title = rawTitle.replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+            }
           }
         }
       }

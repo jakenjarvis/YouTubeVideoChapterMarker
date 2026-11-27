@@ -72,7 +72,15 @@ const ALLOWED_YOUTUBE_HOSTS = new Set([
   'www.youtube-nocookie.com',
 ]);
 
+const MAX_YOUTUBE_INPUT_LENGTH = 2048;
+
 function extractYouTubeVideoId(rawInput: string): string | null {
+  if (!rawInput || typeof rawInput !== 'string' || rawInput.length > MAX_YOUTUBE_INPUT_LENGTH) {
+    return null;
+  }
+  if (/[\x00-\x1f\x7f]/.test(rawInput)) {
+    return null;
+  }
   const trimmed = rawInput.trim();
   if (!trimmed) return null;
 
@@ -92,6 +100,14 @@ function extractYouTubeVideoId(rawInput: string): string | null {
     return null;
   }
 
+  if (parsed.username || parsed.password) {
+    return null;
+  }
+
+  if (parsed.port && parsed.port !== '443' && parsed.port !== '80') {
+    return null;
+  }
+
   const hostname = parsed.hostname.toLowerCase();
   if (!ALLOWED_YOUTUBE_HOSTS.has(hostname)) {
     return null;
@@ -100,8 +116,8 @@ function extractYouTubeVideoId(rawInput: string): string | null {
   let candidate: string | null = null;
 
   if (hostname === 'youtu.be' || hostname === 'www.youtu.be') {
-    const seg = parsed.pathname.split('/').filter(Boolean)[0];
-    candidate = seg ?? null;
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    candidate = segments.length === 1 ? segments[0] : null;
   } else {
     const vParam = parsed.searchParams.get('v');
     if (vParam) {
@@ -139,12 +155,15 @@ function parseTimestampToken(token: string): number | null {
   return null;
 }
 
-function cleanChapterTitle(raw: string): string {
-  return raw
-    .replace(/^[\s\u3000\-–—:：|｜/・•·>＞]+/, '')
-    .replace(/[\s\u3000\-–—:：|｜]+$/, '')
-    .trim();
-}
+const MATCHING_BRACKET_END: Record<string, string> = {
+  '[': ']',
+  '(': ')',
+  '【': '】',
+  '『': '』',
+  '「': '」',
+};
+
+const ZERO_WIDTH_EDGE_RE = /^[\s\u200B-\u200D\u2060\uFEFF]+|[\s\u200B-\u200D\u2060\uFEFF]+$/g;
 
 function parseChaptersFromDescription(
   description: string,
@@ -152,18 +171,18 @@ function parseChaptersFromDescription(
 ): ParsedYouTubeChapter[] {
   if (!description || !description.trim()) return [];
 
-  const lines = description.split(/\r?\n/);
+  const lines = description.split(/\r\n|\n|\r/);
   const extracted: ParsedYouTubeChapter[] = [];
   const seenSeconds = new Set<number>();
 
   const leadingRe =
-    /^(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*)?(?:[\[(【『「]\s*)?(\d{1,2}:[0-5]\d(?::[0-5]\d)?)(?:\s*[\])】』」])?(?:[\s\u3000\-–—:：|｜/]+(.*))?$/;
+    /^(?:(?:\d{1,3}[.)\]]\s+)|(?:[•·・\-–—*▶►▷■□◆◇★☆●○]\s*))?(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/;
 
-  const trailingRe =
-    /^(.+?)[\s\u3000\-–—|｜]+(?:[\[(【]\s*)?(\d{1,2}:[0-5]\d(?::[0-5]\d)?)(?:\s*[\])】])?$/;
+  const endTokenRe =
+    /(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?$/;
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    const line = rawLine.replace(ZERO_WIDTH_EDGE_RE, '');
     if (!line) continue;
     if (/^https?:\/\//i.test(line)) continue;
 
@@ -172,13 +191,68 @@ function parseChaptersFromDescription(
 
     const leadMatch = leadingRe.exec(line);
     if (leadMatch) {
-      timeSec = parseTimestampToken(leadMatch[1]);
-      title = cleanChapterTitle(leadMatch[2] ?? '');
-    } else {
-      const trailMatch = trailingRe.exec(line);
-      if (trailMatch && !/https?:\/\//i.test(trailMatch[1])) {
-        timeSec = parseTimestampToken(trailMatch[2]);
-        title = cleanChapterTitle(trailMatch[1]);
+      const openBr = leadMatch[1] ?? '';
+      const closeBr = leadMatch[3] ?? '';
+      let rest = leadMatch[4] ?? '';
+      const bracketsValid =
+        (!openBr && !closeBr) ||
+        (Boolean(openBr) && closeBr === MATCHING_BRACKET_END[openBr]);
+      const hasValidBoundary =
+        Boolean(openBr) ||
+        rest.length === 0 ||
+        /^[\s\u3000\-–—:：|｜/・•·>＞~〜～]/.test(rest);
+
+      if (bracketsValid && hasValidBoundary) {
+        const parsed = parseTimestampToken(leadMatch[2]);
+        if (parsed !== null) {
+          const rangeMatch =
+            /^[\s\u3000]*[-–—~〜～][\s\u3000]*(?:([\[(【『「])[ \t\u3000]*)?(\d{1,3}:[0-5]\d(?::[0-5]\d)?)(?:[ \t\u3000]*([\])】』」]))?(.*)$/.exec(
+              rest
+            );
+          if (rangeMatch) {
+            const rOpen = rangeMatch[1] ?? '';
+            const rClose = rangeMatch[3] ?? '';
+            const rRest = rangeMatch[4] ?? '';
+            const rBracketsValid =
+              (!rOpen && !rClose) ||
+              (Boolean(rOpen) && rClose === MATCHING_BRACKET_END[rOpen]);
+            const rBoundaryValid =
+              Boolean(rOpen) ||
+              rRest.length === 0 ||
+              /^[\s\u3000\-–—:：|｜/・•·>＞]/.test(rRest);
+            if (rBracketsValid && rBoundaryValid && parseTimestampToken(rangeMatch[2]) !== null) {
+              rest = rRest;
+            }
+          }
+          timeSec = parsed;
+          title = rest.replace(/^[\s\u3000\-–—:：|｜/・•·>＞]+/, '').trim();
+        }
+      }
+    }
+
+    if (timeSec === null) {
+      const tailWindowStart = Math.max(0, line.length - 48);
+      const tailSlice = line.slice(tailWindowStart);
+      const endMatch = endTokenRe.exec(tailSlice);
+      if (endMatch && endMatch.index > 0) {
+        const tokenStartInLine = tailWindowStart + endMatch.index;
+        const charBefore = line[tokenStartInLine - 1];
+        const openBr = endMatch[1] ?? '';
+        const closeBr = endMatch[3] ?? '';
+        const bracketsValid =
+          (!openBr && !closeBr) ||
+          (Boolean(openBr) && closeBr === MATCHING_BRACKET_END[openBr]);
+        const sepValid = tokenStartInLine > 0 && /[\s\u3000\-–—|｜:：]/.test(charBefore);
+        if (bracketsValid && sepValid) {
+          const rawTitle = line.slice(0, tokenStartInLine);
+          if (!/https?:\/\//i.test(rawTitle)) {
+            const parsed = parseTimestampToken(endMatch[2]);
+            if (parsed !== null) {
+              timeSec = parsed;
+              title = rawTitle.replace(/[\s\u3000\-–—:：|｜]+$/, '').trim();
+            }
+          }
+        }
       }
     }
 
@@ -549,7 +623,9 @@ export async function GET(request: Request): Promise<Response> {
     const errorCode =
       err instanceof YouTubeApiError ? err.code : 'YOUTUBE_LOAD_FAILED';
     const message =
-      err instanceof Error ? err.message : 'YouTube動画の読み込み中にエラーが発生しました。';
+      err instanceof YouTubeApiError
+        ? err.message
+        : 'YouTube動画の読み込み中にエラーが発生しました。';
     return jsonResponse({ errorCode, error: message }, 502);
   }
 }
