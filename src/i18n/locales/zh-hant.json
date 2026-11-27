@@ -46,14 +46,11 @@
     "importExportText": "文字匯入／匯出",
     "openVideo": "開啟影片",
     "languageSwitcherAriaLabel": "選擇顯示語言",
-    "selectLanguage": "語言",
     "githubRepoLabel": "OSS",
     "githubRepoTitle": "開啟 GitHub 專案（Apache-2.0 開源軟體）",
     "githubRepoAriaLabel": "在 GitHub 上檢視開源專案"
   },
   "workspace": {
-    "mute": "靜音",
-    "unmute": "取消靜音",
     "splitterAriaLabel": "拖曳垂直分隔線以調整左右面板寬度",
     "splitterTitle": "左右拖曳調整面板寬度（雙擊重設為預設寬度）",
     "tabMarkersChapters": "標記與章節 ({{count}})",
@@ -361,7 +358,7 @@
     "heading": "常見問題（FAQ）",
     "subheading": "關於 YouTube 章節設定規則、隱私安全與支援影片格式的快速解答。",
     "q1": "YouTube 資訊欄的章節要符合哪些條件才會正常顯示？",
-    "a1": "第一個章節必須從 00:00:00（或 00:00）開始，依時間順序至少列出 3 個時間戳記，且每個章節長度至少需 10 秒以上。YouTube Video Chapter Marker 會直接輸出可直接貼上的「00:00:00 標題」格式。",
+    "a1": "第一個章節必須從 00:00（或 00:00:00）開始，依時間順序至少列出 3 個時間戳記，且每個章節長度至少需 10 秒以上。YouTube Video Chapter Marker 支援自由選擇匯出格式（如 0:00、00:00、00:00:00 或連字號分隔），一鍵產生可直接貼至 YouTube 資訊欄的章節清單。",
     "q2": "我載入的本機影片檔案會被上傳到伺服器嗎？",
     "a2": "不會。所有本機影片檔案（MP4、MOV、WebM、MKV、M4V 等）皆完全在您的瀏覽器內進行解析與播放，影片檔案絕不會離開您的裝置。",
     "q3": "可以載入已發布的 YouTube 影片來修改既有章節嗎？",

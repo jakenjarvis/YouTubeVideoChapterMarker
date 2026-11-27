@@ -46,14 +46,11 @@
     "importExportText": "Import / Export",
     "openVideo": "Video öffnen",
     "languageSwitcherAriaLabel": "Anzeigesprache wählen",
-    "selectLanguage": "Sprache",
     "githubRepoLabel": "OSS",
     "githubRepoTitle": "GitHub-Repository öffnen (Apache-2.0 Open Source)",
     "githubRepoAriaLabel": "Open-Source-Repository auf GitHub ansehen"
   },
   "workspace": {
-    "mute": "Stumm",
-    "unmute": "Ton aktivieren",
     "splitterAriaLabel": "Vertikale Trennlinie ziehen, um die Panelbreite anzupassen",
     "splitterTitle": "Horizontal ziehen für Panelbreite (Doppelklick zum Zurücksetzen)",
     "tabMarkersChapters": "Marker & Kapitel ({{count}})",
@@ -400,7 +397,7 @@
     "heading": "Häufig gestellte Fragen (FAQ)",
     "subheading": "Kurze Antworten zu YouTube-Kapiteln, Datenschutz und unterstützten Videoformaten.",
     "q1": "Welche Regeln gelten, damit Kapitel auf YouTube angezeigt werden?",
-    "a1": "Das erste Kapitel muss bei 00:00:00 (oder 00:00) beginnen, es sind mindestens 3 Zeitstempel in aufsteigender Reihenfolge nötig und jedes Kapitel muss mindestens 10 Sekunden lang sein. YouTube Video Chapter Marker formatiert deine Timeline direkt als fertige „00:00:00 Titel“-Liste.",
+    "a1": "Das erste Kapitel muss bei 00:00 (oder 00:00:00) beginnen, es sind mindestens 3 Zeitstempel in aufsteigender Reihenfolge nötig und jedes Kapitel muss mindestens 10 Sekunden lang sein. YouTube Video Chapter Marker formatiert deine Timeline im gewünschten Format (z. B. 00:00 Titel, 00:00:00 Titel oder mit Bindestrich) direkt zum Kopieren und Einfügen.",
     "q2": "Werden meine lokalen Videodateien auf einen Server hochgeladen?",
     "a2": "Nein. Alle lokalen Videodateien (MP4, MOV, WebM, MKV, M4V) werden vollständig im Browser analysiert und abgespielt. Deine Dateien verlassen niemals dein Gerät.",
     "q3": "Kann ich bestehende Kapitel eines veröffentlichten YouTube-Videos bearbeiten?",

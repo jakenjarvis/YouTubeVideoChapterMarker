@@ -46,14 +46,11 @@
     "importExportText": "Impor / Ekspor",
     "openVideo": "Buka Video",
     "languageSwitcherAriaLabel": "Pilih bahasa tampilan",
-    "selectLanguage": "Bahasa",
     "githubRepoLabel": "OSS",
     "githubRepoTitle": "Buka repositori GitHub (Apache-2.0 Open Source)",
     "githubRepoAriaLabel": "Lihat repositori open source di GitHub"
   },
   "workspace": {
-    "mute": "Bisukan",
-    "unmute": "Bunyikan",
     "splitterAriaLabel": "Seret garis pemisah vertikal untuk mengatur lebar panel",
     "splitterTitle": "Seret secara horizontal untuk mengubah lebar panel (klik ganda untuk reset)",
     "tabMarkersChapters": "Marker & Chapter ({{count}})",
@@ -361,7 +358,7 @@
     "heading": "Pertanyaan yang Sering Diajukan (FAQ)",
     "subheading": "Jawaban singkat tentang pembuatan chapter YouTube, privasi, dan format video yang didukung.",
     "q1": "Apa syarat agar chapter video muncul di deskripsi YouTube?",
-    "a1": "Chapter pertama harus dimulai dari 00:00:00 (atau 00:00), minimal terdapat 3 timestamp secara berurutan, dan durasi setiap chapter minimal 10 detik. YouTube Video Chapter Marker langsung memformat timeline Anda ke baris 00:00:00 Judul yang siap tempel.",
+    "a1": "Chapter pertama harus dimulai dari 00:00 (atau 00:00:00), minimal terdapat 3 timestamp secara berurutan, dan durasi setiap chapter minimal 10 detik. YouTube Video Chapter Marker memungkinkan Anda memilih format yang diinginkan (0:00, 00:00, 00:00:00, atau dipisahkan tanda hubung) dan mengekspor daftar yang siap ditempel ke deskripsi YouTube.",
     "q2": "Apakah file video lokal saya diunggah ke server?",
     "a2": "Tidak. Semua file video lokal (MP4, MOV, WebM, MKV, M4V) dianalisis dan diputar sepenuhnya di dalam browser Anda. File media Anda tidak pernah meninggalkan perangkat.",
     "q3": "Bisakah saya mengedit chapter yang sudah ada dari video YouTube yang telah tayang?",

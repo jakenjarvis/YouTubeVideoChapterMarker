@@ -21,7 +21,8 @@
 2. **1ステップずつ実装し、確認してから次へ進む**
    - 複数言語追加や大規模改修をまとめて行わず、1対象ごとに **実装 → 検証 → 表示確認** のサイクルを守る。
 3. **既存タグ・設定の保護**
-   - `index.html` の Google AdSense スクリプト（`ca-pub-8666829667737106`）を削除・改変しない。
+   - `index.html` の Google アナリティクス / タグマネージャー（`GTM-W8NKMDP7`）および Google AdSense スクリプト（`ca-pub-8666829667737106`）を削除・改変しない。
+   - Google Search Console 所有権確認ファイル（`public/googleb5dcf5082a5a4463.html`）を削除・改変しない。
    - `metadata.json` のアプリ名・権限や、既存言語・編集ワークフローを破壊しない。
 4. **変更後の必須検証**
    - `npm run lint`（`tsc --noEmit`）、`npm test`、`npm run build`、`npm run test:build` のすべてをエラーゼロで通す（GitHub Actions `.github/workflows/ci.yml` でも同じチェックが実行される）。

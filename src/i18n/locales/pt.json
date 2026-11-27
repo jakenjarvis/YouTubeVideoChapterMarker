@@ -46,14 +46,11 @@
     "importExportText": "Importar / Exportar",
     "openVideo": "Abrir vídeo",
     "languageSwitcherAriaLabel": "Selecionar idioma",
-    "selectLanguage": "Idioma",
     "githubRepoLabel": "OSS",
     "githubRepoTitle": "Abrir repositório no GitHub (Apache-2.0 Open Source)",
     "githubRepoAriaLabel": "Ver repositório de código aberto no GitHub"
   },
   "workspace": {
-    "mute": "Silenciar",
-    "unmute": "Ativar som",
     "splitterAriaLabel": "Arraste a divisória vertical para ajustar a largura dos painéis",
     "splitterTitle": "Arraste horizontalmente para ajustar a largura (duplo clique para redefinir)",
     "tabMarkersChapters": "Marcadores e capítulos ({{count}})",
@@ -413,7 +410,7 @@
     "heading": "Perguntas frequentes (FAQ)",
     "subheading": "Respostas rápidas sobre criação de capítulos no YouTube, privacidade e formatos de vídeo aceitos.",
     "q1": "Quais são as regras para os capítulos funcionarem na descrição do YouTube?",
-    "a1": "O primeiro capítulo deve começar em 00:00:00 (ou 00:00), incluir pelo menos 3 timestamps em ordem crescente e cada capítulo precisa ter no mínimo 10 segundos. O YouTube Video Chapter Marker gera o texto pronto no formato 00:00:00 Título.",
+    "a1": "O primeiro capítulo deve começar em 00:00 (ou 00:00:00), incluir pelo menos 3 timestamps em ordem crescente e cada capítulo precisa ter no mínimo 10 segundos. O YouTube Video Chapter Marker permite escolher o formato desejado (0:00, 00:00, 00:00:00 ou com hífen) e exportar a lista pronta para colar no YouTube.",
     "q2": "Meus arquivos de vídeo locais são enviados para algum servidor?",
     "a2": "Não. Todos os arquivos de vídeo locais (MP4, MOV, WebM, MKV, M4V) são analisados e reproduzidos totalmente dentro do seu navegador. Seus arquivos nunca saem do seu dispositivo.",
     "q3": "Posso editar capítulos já existentes de um vídeo publicado no YouTube?",

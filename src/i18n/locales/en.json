@@ -46,14 +46,11 @@
     "importExportText": "Import / Export",
     "openVideo": "Open Video",
     "languageSwitcherAriaLabel": "Select display language",
-    "selectLanguage": "Language",
     "githubRepoLabel": "OSS",
     "githubRepoTitle": "Open GitHub repository (Apache-2.0 Open Source)",
     "githubRepoAriaLabel": "View open-source repository on GitHub"
   },
   "workspace": {
-    "mute": "Mute",
-    "unmute": "Unmute",
     "splitterAriaLabel": "Drag vertical divider to resize panels",
     "splitterTitle": "Drag horizontally to resize panels (double-click to reset width)",
     "tabMarkersChapters": "Markers & Chapters ({{count}})",
@@ -400,7 +397,7 @@
     "heading": "Frequently Asked Questions",
     "subheading": "Quick answers on YouTube chapter creation, privacy, and supported video formats.",
     "q1": "How do I format YouTube video chapters so they work in the description?",
-    "a1": "Start your first chapter at 00:00:00 (or 00:00), include at least 3 timestamps in ascending order, and keep each chapter at least 10 seconds long. YouTube Video Chapter Marker formats your timeline directly into ready-to-paste 00:00:00 Title lines.",
+    "a1": "Start your first chapter at 00:00 (or 00:00:00), include at least 3 timestamps in ascending order, and keep each chapter at least 10 seconds long. YouTube Video Chapter Marker lets you choose your preferred format (0:00, 00:00, 00:00:00, or dash-separated) and exports ready-to-paste lines for your YouTube description.",
     "q2": "Are my local video files uploaded to a server?",
     "a2": "No. Local video files (MP4, MOV, WebM, MKV, M4V) are analyzed and played entirely inside your browser. Your media files never leave your device.",
     "q3": "Can I edit existing chapters from a published YouTube video?",
