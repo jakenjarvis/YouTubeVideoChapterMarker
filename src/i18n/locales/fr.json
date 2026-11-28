@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "Importer texte",
     "shortcuts": "Raccourcis",
-    "importExportText": "Importer / Exporter",
+    "importExportText": "Exporter texte",
     "openVideo": "Ouvrir vidéo",
     "languageSwitcherAriaLabel": "Choisir la langue d'affichage",
     "githubRepoLabel": "OSS",
@@ -227,9 +227,8 @@
     "currentPositionAria": "Position actuelle {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "Importer / Exporter le texte des chapitres",
-    "tabExport": "Exporter",
-    "tabImport": "Importer",
+    "importModalTitle": "Importer le texte des chapitres",
+    "exportModalTitle": "Exporter le texte des chapitres",
     "timeFormatLabel": "Format horaire",
     "timeFormatAuto": "Auto",
     "timeFormatAutoHint": "00:00 sous 1 h · 00:00:00 à partir de 1 h",
@@ -363,7 +362,7 @@
     "youtubeLoadGenericError": "Une erreur est survenue lors du chargement de la vidéo YouTube.",
     "youtubeInfoFetchFailed": "Impossible de récupérer les informations de la vidéo YouTube.",
     "youtubeLoadFailed": "Impossible de charger la vidéo YouTube.",
-    "staticSiteYouTubeWarning": "La récupération automatique de la description YouTube n'est pas disponible sur un hébergement statique. Vous pouvez lire et marquer la vidéo normalement, ou coller les chapitres via Importer / Exporter → Importer."
+    "staticSiteYouTubeWarning": "La récupération automatique de la description YouTube n'est pas disponible sur un hébergement statique. Vous pouvez lire et marquer la vidéo normalement, ou coller les chapitres via « Importer texte »."
   },
   "notices": {
     "chapterSourceDescription": "la description",

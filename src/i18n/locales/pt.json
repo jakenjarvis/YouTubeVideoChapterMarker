@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "Importar texto",
     "shortcuts": "Atalhos",
-    "importExportText": "Importar / Exportar",
+    "importExportText": "Exportar texto",
     "openVideo": "Abrir vídeo",
     "languageSwitcherAriaLabel": "Selecionar idioma",
     "githubRepoLabel": "OSS",
@@ -231,9 +231,8 @@
     "currentPositionAria": "Posição atual {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "Importar / Exportar texto de capítulos",
-    "tabExport": "Exportar",
-    "tabImport": "Importar",
+    "importModalTitle": "Importar texto de capítulos",
+    "exportModalTitle": "Exportar texto de capítulos",
     "timeFormatLabel": "Formato de tempo",
     "timeFormatAuto": "Auto",
     "timeFormatAutoHint": "00:00 abaixo de 1 h · 00:00:00 a partir de 1 h",
@@ -371,7 +370,7 @@
     "youtubeLoadGenericError": "Ocorreu um erro ao carregar o vídeo do YouTube.",
     "youtubeInfoFetchFailed": "Falha ao obter informações do vídeo do YouTube.",
     "youtubeLoadFailed": "Falha ao carregar o vídeo do YouTube.",
-    "staticSiteYouTubeWarning": "A busca automática da descrição do YouTube não está disponível em hospedagem estática. Você ainda pode reproduzir e marcar o vídeo, ou colar os capítulos em Importar / Exportar → Importar."
+    "staticSiteYouTubeWarning": "A busca automática da descrição do YouTube não está disponível em hospedagem estática. Você ainda pode reproduzir e marcar o vídeo, ou colar os capítulos em «Importar texto»."
   },
   "notices": {
     "chapterSourceDescription": "da descrição",

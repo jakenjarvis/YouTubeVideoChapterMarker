@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "Impor Teks",
     "shortcuts": "Pintasan",
-    "importExportText": "Impor / Ekspor",
+    "importExportText": "Ekspor Teks",
     "openVideo": "Buka Video",
     "languageSwitcherAriaLabel": "Pilih bahasa tampilan",
     "githubRepoLabel": "OSS",
@@ -215,9 +215,8 @@
     "currentPositionAria": "Posisi saat ini {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "Impor / Ekspor Teks Chapter",
-    "tabExport": "Ekspor",
-    "tabImport": "Impor",
+    "importModalTitle": "Impor Teks Chapter",
+    "exportModalTitle": "Ekspor Teks Chapter",
     "timeFormatLabel": "Format Waktu",
     "timeFormatAuto": "Otomatis",
     "timeFormatAutoHint": "00:00 di bawah 1 jam · 00:00:00 untuk 1 jam+",
@@ -327,7 +326,7 @@
     "youtubeLoadGenericError": "Terjadi kesalahan saat memuat video YouTube.",
     "youtubeInfoFetchFailed": "Gagal mengambil informasi video YouTube.",
     "youtubeLoadFailed": "Gagal memuat video YouTube.",
-    "staticSiteYouTubeWarning": "Pengambilan deskripsi YouTube otomatis tidak tersedia di hosting statis. Anda tetap dapat memutar dan menandai video, atau menempel chapter melalui Impor / Ekspor → Impor."
+    "staticSiteYouTubeWarning": "Pengambilan deskripsi YouTube otomatis tidak tersedia di hosting statis. Anda tetap dapat memutar dan menandai video, atau menempel chapter melalui «Impor Teks»."
   },
   "notices": {
     "chapterSourceDescription": "deskripsi",

@@ -468,28 +468,6 @@ export function sanitizeExportBaseName(raw: string | null | undefined, fallback:
   return cleaned;
 }
 
-/**
- * Chooses the most helpful default tab when opening the Import/Export modal:
- * - 'export' when at least one marker has a non-empty assigned chapter title (ready to export)
- * - 'import' when there are no markers or no titled chapters yet
- */
-export function resolveDefaultImportExportTab(
-  markers: readonly Marker[],
-  titles: readonly ChapterTitle[]
-): 'export' | 'import' {
-  if (markers.length === 0 || titles.length === 0) {
-    return 'import';
-  }
-  const markerIds = new Set(markers.map((m) => m.id));
-  const hasExportableChapter = titles.some(
-    (title) =>
-      title.assignedMarkerId !== null &&
-      markerIds.has(title.assignedMarkerId) &&
-      title.text.trim().length > 0
-  );
-  return hasExportableChapter ? 'export' : 'import';
-}
-
 export function createId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }

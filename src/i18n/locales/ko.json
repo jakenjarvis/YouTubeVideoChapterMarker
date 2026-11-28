@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "텍스트 입력",
     "shortcuts": "단축키",
-    "importExportText": "텍스트 입출력",
+    "importExportText": "텍스트 출력",
     "openVideo": "동영상 열기",
     "languageSwitcherAriaLabel": "표시 언어 선택",
     "githubRepoLabel": "OSS",
@@ -215,9 +215,8 @@
     "currentPositionAria": "현재 위치 {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "챕터 텍스트 입출력",
-    "tabExport": "출력",
-    "tabImport": "입력",
+    "importModalTitle": "챕터 텍스트 입력",
+    "exportModalTitle": "챕터 텍스트 출력",
     "timeFormatLabel": "시간 형식",
     "timeFormatAuto": "자동",
     "timeFormatAutoHint": "1시간 미만 00:00 · 1시간 이상 00:00:00",
@@ -327,7 +326,7 @@
     "youtubeLoadGenericError": "YouTube 동영상을 불러오는 중 오류가 발생했습니다.",
     "youtubeInfoFetchFailed": "YouTube 동영상 정보를 가져오지 못했습니다.",
     "youtubeLoadFailed": "YouTube 동영상을 불러오지 못했습니다.",
-    "staticSiteYouTubeWarning": "정적 호스팅 환경에서는 YouTube 설명란 자동 가져오기를 사용할 수 없습니다. 영상 재생 및 마킹은 그대로 이용할 수 있으며, 설명란 챕터는 복사하여 「텍스트 입출력」 → 「입력」에서 불러올 수 있습니다."
+    "staticSiteYouTubeWarning": "정적 호스팅 환경에서는 YouTube 설명란 자동 가져오기를 사용할 수 없습니다. 영상 재생 및 마킹은 그대로 이용할 수 있으며, 설명란 챕터는 복사하여 「텍스트 입력」에서 불러올 수 있습니다."
   },
   "notices": {
     "chapterSourceDescription": "설명란",

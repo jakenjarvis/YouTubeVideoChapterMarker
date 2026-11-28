@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "导入文本",
     "shortcuts": "快捷键",
-    "importExportText": "文本导入／导出",
+    "importExportText": "导出文本",
     "openVideo": "打开视频",
     "languageSwitcherAriaLabel": "选择显示语言",
     "githubRepoLabel": "OSS",
@@ -215,9 +215,8 @@
     "currentPositionAria": "当前位置 {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "章节文本 导入 / 导出",
-    "tabExport": "导出",
-    "tabImport": "导入",
+    "importModalTitle": "导入章节文本",
+    "exportModalTitle": "导出章节文本",
     "timeFormatLabel": "时间格式",
     "timeFormatAuto": "自动",
     "timeFormatAutoHint": "不足 1 小时用 00:00 · 满 1 小时用 00:00:00",
@@ -327,7 +326,7 @@
     "youtubeLoadGenericError": "加载 YouTube 视频时发生错误。",
     "youtubeInfoFetchFailed": "无法获取 YouTube 视频信息。",
     "youtubeLoadFailed": "无法加载 YouTube 视频。",
-    "staticSiteYouTubeWarning": "静态站点环境下无法自动拉取 YouTube 简介。您仍可正常播放和标记视频，或复制简介章节后通过「文本导入／导出」→「导入」粘贴导入。"
+    "staticSiteYouTubeWarning": "静态站点环境下无法自动拉取 YouTube 简介。您仍可正常播放和标记视频，或复制简介章节后通过「导入文本」粘贴导入。"
   },
   "notices": {
     "chapterSourceDescription": "简介",

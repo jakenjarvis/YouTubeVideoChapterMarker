@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "Import Text",
     "shortcuts": "Shortcuts",
-    "importExportText": "Import / Export",
+    "importExportText": "Export Text",
     "openVideo": "Open Video",
     "languageSwitcherAriaLabel": "Select display language",
     "githubRepoLabel": "OSS",
@@ -227,9 +227,8 @@
     "currentPositionAria": "Current position {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "Chapter Text Import / Export",
-    "tabExport": "Export",
-    "tabImport": "Import",
+    "importModalTitle": "Import Chapter Text",
+    "exportModalTitle": "Export Chapter Text",
     "timeFormatLabel": "Time Format",
     "timeFormatAuto": "Auto",
     "timeFormatAutoHint": "Uses 00:00 under 1 hour, 00:00:00 at 1 hour or longer",
@@ -360,7 +359,7 @@
     "youtubeLoadGenericError": "An error occurred while loading the YouTube video.",
     "youtubeInfoFetchFailed": "Failed to fetch YouTube video information.",
     "youtubeLoadFailed": "Failed to load the YouTube video.",
-    "staticSiteYouTubeWarning": "Automatic YouTube description fetching is unavailable on static hosting. You can still play and mark the video, or paste description chapters via Import / Export → Import."
+    "staticSiteYouTubeWarning": "Automatic YouTube description fetching is unavailable on static hosting. You can still play and mark the video, or paste description chapters via Import Text."
   },
   "notices": {
     "chapterSourceDescription": "the description",

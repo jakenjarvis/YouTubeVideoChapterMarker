@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "استيراد نص",
     "shortcuts": "الاختصارات",
-    "importExportText": "استيراد / تصدير",
+    "importExportText": "تصدير نص",
     "openVideo": "فتح فيديو",
     "languageSwitcherAriaLabel": "اختيار لغة العرض",
     "githubRepoLabel": "OSS",
@@ -243,9 +243,8 @@
     "currentPositionAria": "الموضع الحالي {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "استيراد / تصدير نص الفصول",
-    "tabExport": "تصدير",
-    "tabImport": "استيراد",
+    "importModalTitle": "استيراد نص الفصول",
+    "exportModalTitle": "تصدير نص الفصول",
     "timeFormatLabel": "تنسيق الوقت",
     "timeFormatAuto": "تلقائي",
     "timeFormatAutoHint": "أقل من ساعة ⁦00:00⁩ · ساعة فأكثر ⁦00:00:00⁩",
@@ -404,7 +403,7 @@
     "youtubeLoadGenericError": "حدث خطأ أثناء تحميل فيديو YouTube.",
     "youtubeInfoFetchFailed": "فشل جلب معلومات فيديو YouTube.",
     "youtubeLoadFailed": "فشل تحميل فيديو YouTube.",
-    "staticSiteYouTubeWarning": "الجلب التلقائي لوصف YouTube غير متاح على الاستضافة الثابتة. يمكنك تشغيل الفيديو ووضع العلامات، أو لصق الفصول عبر «استيراد / تصدير ← استيراد»."
+    "staticSiteYouTubeWarning": "الجلب التلقائي لوصف YouTube غير متاح على الاستضافة الثابتة. يمكنك تشغيل الفيديو ووضع العلامات، أو لصق الفصول عبر «استيراد نص»."
   },
   "notices": {
     "chapterSourceDescription": "الوصف",

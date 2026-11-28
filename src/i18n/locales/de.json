@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "Text importieren",
     "shortcuts": "Shortcuts",
-    "importExportText": "Import / Export",
+    "importExportText": "Text exportieren",
     "openVideo": "Video öffnen",
     "languageSwitcherAriaLabel": "Anzeigesprache wählen",
     "githubRepoLabel": "OSS",
@@ -227,9 +227,8 @@
     "currentPositionAria": "Aktuelle Position {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "Kapiteltext Import / Export",
-    "tabExport": "Export",
-    "tabImport": "Import",
+    "importModalTitle": "Kapiteltext importieren",
+    "exportModalTitle": "Kapiteltext exportieren",
     "timeFormatLabel": "Zeitformat",
     "timeFormatAuto": "Auto",
     "timeFormatAutoHint": "Unter 1 Std. 00:00 · ab 1 Std. 00:00:00",
@@ -360,7 +359,7 @@
     "youtubeLoadGenericError": "Fehler beim Laden des YouTube-Videos.",
     "youtubeInfoFetchFailed": "YouTube-Videoinformationen konnten nicht abgerufen werden.",
     "youtubeLoadFailed": "YouTube-Video konnte nicht geladen werden.",
-    "staticSiteYouTubeWarning": "Automatisches Auslesen der YouTube-Beschreibung ist auf statischem Hosting nicht verfügbar. Du kannst das Video trotzdem abspielen und markieren oder Kapitel über Import / Export → Import einfügen."
+    "staticSiteYouTubeWarning": "Automatisches Auslesen der YouTube-Beschreibung ist auf statischem Hosting nicht verfügbar. Du kannst das Video trotzdem abspielen und markieren oder Kapitel über „Text importieren“ einfügen."
   },
   "notices": {
     "chapterSourceDescription": "der Beschreibung",

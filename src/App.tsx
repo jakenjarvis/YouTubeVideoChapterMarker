@@ -10,6 +10,7 @@ import {
   Keyboard,
   Bookmark,
   Compass,
+  Upload,
   Youtube,
   X,
 } from 'lucide-react';
@@ -29,7 +30,6 @@ import { generateSampleVideoFile } from './utils/sampleVideoGenerator';
 import {
   createId,
   findFrameIndexByTime,
-  resolveDefaultImportExportTab,
   type ParsedChapterLine,
 } from './utils/timecode';
 import {
@@ -46,10 +46,10 @@ import { TransportControls } from './components/TransportControls';
 import { ChapterTimelinePanel } from './components/ChapterTimelinePanel';
 import { InternalScenePanel } from './components/InternalScenePanel';
 import {
-  ImportExportModal,
-  type ImportExportModalTab,
+  ChapterImportModal,
   type UnifiedImportOptions,
-} from './components/ImportExportModal';
+} from './components/ChapterImportModal';
+import { ChapterExportModal } from './components/ChapterExportModal';
 import { ShortcutHelpModal } from './components/ShortcutHelpModal';
 import {
   YouTubePlayerView,
@@ -203,8 +203,8 @@ export default function App() {
   );
   const workspaceRef = useRef<HTMLElement | null>(null);
 
-  const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [importExportInitialTab, setImportExportInitialTab] = useState<ImportExportModalTab>('export');
+  const [isTextImportOpen, setIsTextImportOpen] = useState(false);
+  const [isTextExportOpen, setIsTextExportOpen] = useState(false);
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
 
   const hiddenFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1557,9 +1557,10 @@ export default function App() {
       // Never intercept keys while an IME (Japanese, Chinese, Korean, Vietnamese, etc.) is composing
       if (e.isComposing || e.keyCode === 229) return;
 
-      if (isImportExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
+      if (isTextImportOpen || isTextExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
         if (e.key === 'Escape') {
-          setIsImportExportOpen(false);
+          setIsTextImportOpen(false);
+          setIsTextExportOpen(false);
           setIsShortcutHelpOpen(false);
           setIsYouTubeModalOpen(false);
         }
@@ -1663,7 +1664,8 @@ export default function App() {
     adjustVolumeBy,
     appMode,
     handleToggleMute,
-    isImportExportOpen,
+    isTextImportOpen,
+    isTextExportOpen,
     isShortcutHelpOpen,
     isYouTubeModalOpen,
     jumpNextMarker,
@@ -1728,14 +1730,14 @@ export default function App() {
           </a>
         </div>
 
-        {/* Zone 2: Clean Single-Line Text Navigation Actions */}
-        <nav className="flex items-center gap-4 xl:gap-6 text-xs font-medium text-[#94A0B2] min-w-0">
+        {/* Zone 2: Framed Utility Action Buttons */}
+        <nav className="flex items-center gap-2 text-xs font-medium min-w-0">
           {appMode === 'edit' && (
             <>
               <button
                 type="button"
                 onClick={() => hiddenFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[#CBD5E1] hover:text-[#F8FAFC] bg-[#161A22] hover:bg-[#1E2430] border border-[#2C3444] hover:border-[#424E63] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
                 {t('header.openAnotherVideo')}
@@ -1747,25 +1749,15 @@ export default function App() {
                   setYouTubeModalInitialTab('load');
                   setIsYouTubeModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[#CBD5E1] hover:text-[#F8FAFC] bg-[#161A22] hover:bg-[#1E2430] border border-[#2C3444] hover:border-[#424E63] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Youtube className="w-3.5 h-3.5" />
                 {t('header.loadYouTube')}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setImportExportInitialTab('import');
-                  setIsImportExportOpen(true);
-                }}
-                className="hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                {t('header.importTitles')}
-              </button>
-              <button
-                type="button"
                 onClick={() => setIsShortcutHelpOpen(true)}
-                className="inline-flex items-center gap-1.5 hover:text-[#F8FAFC] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[#CBD5E1] hover:text-[#F8FAFC] bg-[#161A22] hover:bg-[#1E2430] border border-[#2C3444] hover:border-[#424E63] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Keyboard className="w-3.5 h-3.5" />
                 {t('header.shortcuts')}
@@ -1774,21 +1766,28 @@ export default function App() {
           )}
         </nav>
 
-        {/* Zone 3: Language Selector + Single Primary Action */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Zone 3: Language Selector + Primary Text Import & Export Actions */}
+        <div className="flex items-center gap-2 shrink-0">
           <LanguageSelector />
           {appMode === 'edit' ? (
-            <button
-              type="button"
-              onClick={() => {
-                setImportExportInitialTab(resolveDefaultImportExportTab(markers, titles));
-                setIsImportExportOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              {t('header.importExportText')}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setIsTextImportOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0D0F12] bg-sky-400 hover:bg-sky-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {t('header.importTitles')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsTextExportOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {t('header.importExportText')}
+              </button>
+            </>
           ) : (
             <button
               type="button"
@@ -2065,17 +2064,23 @@ export default function App() {
         </div>
       )}
 
-      {/* Copy-Paste Text Import & Customizable Format Export Popup */}
-      <ImportExportModal
-        key={`${isImportExportOpen}-${importExportInitialTab}`}
-        isOpen={isImportExportOpen}
-        initialTab={importExportInitialTab}
+      {/* Dedicated Chapter Text Import Popup */}
+      <ChapterImportModal
+        key={`import-${isTextImportOpen}`}
+        isOpen={isTextImportOpen}
+        onClose={() => setIsTextImportOpen(false)}
+        onImportLines={handleImportUnifiedLines}
+      />
+
+      {/* Dedicated Chapter Text Export Popup */}
+      <ChapterExportModal
+        key={`export-${isTextExportOpen}`}
+        isOpen={isTextExportOpen}
         markers={sortedMarkers}
         titles={titles}
         fileName={metadata?.fileName}
         videoDurationSec={metadata?.durationSec}
-        onClose={() => setIsImportExportOpen(false)}
-        onImportLines={handleImportUnifiedLines}
+        onClose={() => setIsTextExportOpen(false)}
       />
 
       {/* YouTube URL Loader & Read-Only Description Viewer Popup */}

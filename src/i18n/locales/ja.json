@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "テキスト入力",
     "shortcuts": "ショートカット",
-    "importExportText": "テキスト入出力",
+    "importExportText": "テキスト出力",
     "openVideo": "動画を開く",
     "languageSwitcherAriaLabel": "表示言語を選択",
     "githubRepoLabel": "OSS",
@@ -215,9 +215,8 @@
     "currentPositionAria": "現在位置 {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "チャプターテキスト 入出力",
-    "tabExport": "出力",
-    "tabImport": "入力",
+    "importModalTitle": "チャプターテキスト 入力",
+    "exportModalTitle": "チャプターテキスト 出力",
     "timeFormatLabel": "時刻の桁数",
     "timeFormatAuto": "自動",
     "timeFormatAutoHint": "1時間未満は 00:00 ／ 1時間以上は 00:00:00",
@@ -327,7 +326,7 @@
     "youtubeLoadGenericError": "YouTube動画の読み込み中にエラーが発生しました。",
     "youtubeInfoFetchFailed": "YouTube動画情報の取得に失敗しました。",
     "youtubeLoadFailed": "YouTube動画の読み込みに失敗しました。",
-    "staticSiteYouTubeWarning": "静的サイト環境のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入出力」→「入力」から取り込めます。"
+    "staticSiteYouTubeWarning": "静的サイト環境のため、YouTube概要欄の自動取得は利用できません。動画再生・マーキングはそのまま利用でき、概要欄のチャプターはコピーして「テキスト入力」から取り込めます。"
   },
   "notices": {
     "chapterSourceDescription": "概要欄",

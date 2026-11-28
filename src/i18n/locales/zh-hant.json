@@ -43,7 +43,7 @@
     "loadYouTube": "YouTube",
     "importTitles": "匯入文字",
     "shortcuts": "快捷鍵",
-    "importExportText": "文字匯入／匯出",
+    "importExportText": "匯出文字",
     "openVideo": "開啟影片",
     "languageSwitcherAriaLabel": "選擇顯示語言",
     "githubRepoLabel": "OSS",
@@ -215,9 +215,8 @@
     "currentPositionAria": "目前位置 {{timecode}}"
   },
   "importExport": {
-    "modalTitle": "章節文字 匯入 / 匯出",
-    "tabExport": "匯出",
-    "tabImport": "匯入",
+    "importModalTitle": "匯入章節文字",
+    "exportModalTitle": "匯出章節文字",
     "timeFormatLabel": "時間格式",
     "timeFormatAuto": "自動",
     "timeFormatAutoHint": "未滿 1 小時用 00:00 · 滿 1 小時用 00:00:00",
@@ -327,7 +326,7 @@
     "youtubeLoadGenericError": "載入 YouTube 影片時發生錯誤。",
     "youtubeInfoFetchFailed": "無法取得 YouTube 影片資訊。",
     "youtubeLoadFailed": "無法載入 YouTube 影片。",
-    "staticSiteYouTubeWarning": "靜態網站環境下無法自動擷取 YouTube 資訊欄。您仍可正常播放與標記影片，或複製資訊欄章節後由「文字匯入／匯出」→「匯入」貼上。"
+    "staticSiteYouTubeWarning": "靜態網站環境下無法自動擷取 YouTube 資訊欄。您仍可正常播放與標記影片，或複製資訊欄章節後透過「匯入文字」貼上。"
   },
   "notices": {
     "chapterSourceDescription": "資訊欄",
