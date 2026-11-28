@@ -253,7 +253,7 @@
     "downloadTxt": ".txt speichern",
     "copied": "Kopiert",
     "copyToClipboard": "In Zwischenablage kopieren",
-    "importDesc": "Jede Zeile wird automatisch erkannt. Mische Kapitel mit Zeitstempel (00:00 Titel, 00:00 - Titel, Titel 00:00), reine Zeitstempel und reine Titel nach Belieben.",
+    "importDesc": "Jede Zeile wird automatisch erkannt. Mische Kapitel mit Zeitstempel (00:00 Titel, 00:00 - Titel, Titel 00:00), zweispaltige Tabellen aus Excel/Tabellenkalkulationen (Tabulator, CSV oder mehrere Leerzeichen), reine Zeitstempel und reine Titel nach Belieben.",
     "importPlaceholder": "00:00 Intro\n04:56 Hauptteil\nNur-Titel-Zeile (wird unzugeordnet hinzugefügt)\n00:38:22\n01:12:00 Fazit",
     "detectedSummaryPrefix": "Erkannt:",
     "detectedChaptersCount": {

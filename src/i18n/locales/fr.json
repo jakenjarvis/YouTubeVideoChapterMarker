@@ -253,7 +253,7 @@
     "downloadTxt": "Enregistrer .txt",
     "copied": "Copié",
     "copyToClipboard": "Copier dans le presse-papiers",
-    "importDesc": "Chaque ligne est analysée automatiquement. Mélangez librement chapitres horodatés (00:00 Titre, 00:00 - Titre, Titre 00:00), lignes d'horodatage seul et lignes de titre seul.",
+    "importDesc": "Chaque ligne est analysée automatiquement. Mélangez librement chapitres horodatés (00:00 Titre, 00:00 - Titre, Titre 00:00), tableaux à 2 colonnes copiés depuis un tableur (tabulations, CSV ou espaces multiples), lignes d'horodatage seul et lignes de titre seul.",
     "importPlaceholder": "00:00 Introduction\n04:56 Sujet principal\nLigne de titre seul (ajoutée non assignée)\n00:38:22\n01:12:00 Conclusion",
     "detectedSummaryPrefix": "Détecté :",
     "detectedChaptersCount": {

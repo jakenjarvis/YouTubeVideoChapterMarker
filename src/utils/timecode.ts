@@ -204,17 +204,239 @@ const MATCHING_CLOSING_BRACKET: Record<string, string> = {
 };
 
 const ZERO_WIDTH_EDGE_RE = /^[\s\u200B-\u200D\u2060\uFEFF]+|[\s\u200B-\u200D\u2060\uFEFF]+$/g;
+const ZERO_WIDTH_ONLY_EDGE_RE = /^[\u200B-\u200D\u2060\uFEFF]+|[\u200B-\u200D\u2060\uFEFF]+$/g;
+
+/**
+ * Linear-time RFC 4180 single-line delimited row parser for TSV ('\t') and CSV (',').
+ * Supports double-quoted fields with escaped quotes ("") and trims unquoted cell whitespace.
+ * Returns null if quotes are malformed (unclosed or invalid characters after closing quote).
+ */
+function parseDelimitedRow(line: string, delimiter: '\t' | ','): string[] | null {
+  if (!line.includes(delimiter)) return null;
+
+  const cells: string[] = [];
+  let i = 0;
+  const len = line.length;
+
+  while (true) {
+    // Skip leading ASCII spaces before a potentially quoted field (preserve tabs when delimiter is '\t')
+    let cellStart = i;
+    while (i < len && (line[i] === ' ' || line[i] === '\u3000')) {
+      i++;
+    }
+
+    if (i < len && line[i] === '"') {
+      // Quoted field
+      i++; // consume opening quote
+      let value = '';
+      let closed = false;
+      while (i < len) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (i + 1 < len && line[i + 1] === '"') {
+            value += '"';
+            i += 2;
+          } else {
+            closed = true;
+            i++;
+            break;
+          }
+        } else {
+          value += ch;
+          i++;
+        }
+      }
+      if (!closed) return null;
+
+      // Only optional spaces allowed between closing quote and delimiter/EOL
+      while (i < len && (line[i] === ' ' || line[i] === '\u3000')) {
+        i++;
+      }
+      if (i < len && line[i] !== delimiter) {
+        return null;
+      }
+      cells.push(value.replace(ZERO_WIDTH_EDGE_RE, ''));
+    } else {
+      // Unquoted field
+      i = cellStart;
+      let nextDelim = line.indexOf(delimiter, i);
+      if (nextDelim === -1) nextDelim = len;
+      const rawCell = line.slice(i, nextDelim);
+      cells.push(rawCell.replace(ZERO_WIDTH_EDGE_RE, ''));
+      i = nextDelim;
+    }
+
+    if (i < len && line[i] === delimiter) {
+      i++; // consume delimiter and parse next cell (even if empty at EOL)
+      continue;
+    }
+    break;
+  }
+
+  return cells;
+}
+
+/**
+ * Parses a standalone table cell as a timestamp (optionally wrapped in matching brackets
+ * or formatted as a time range like "00:00 - 01:30"). Returns null if not a pure timestamp cell.
+ */
+function parseTimestampCell(rawCell: string): number | null {
+  const cell = rawCell.replace(ZERO_WIDTH_EDGE_RE, '');
+  if (!cell || cell.length > 48) return null;
+
+  const unwrapBrackets = (token: string): string | null => {
+    const first = token[0];
+    const expectedClose = MATCHING_CLOSING_BRACKET[first];
+    if (expectedClose) {
+      if (token.endsWith(expectedClose)) {
+        return token.slice(1, -1).trim();
+      }
+      return null;
+    }
+    return token;
+  };
+
+  const unwrapped = unwrapBrackets(cell);
+  if (unwrapped === null) return null;
+
+  const direct = parseTimestampToSeconds(unwrapped);
+  if (direct !== null) return direct;
+
+  // Support range inside a single timestamp cell: e.g. "00:00 - 01:30" or "[00:00] ~ [01:30]"
+  const rangeMatch =
+    /^([^\s\-–—~〜～]+(?:\s*[\])】』」])?)\s*[-–—~〜～]\s*([^\s\-–—~〜～]+(?:\s*[\])】』」])?)$/.exec(
+      unwrapped
+    );
+  if (rangeMatch) {
+    const startPart = unwrapBrackets(rangeMatch[1].trim());
+    const endPart = unwrapBrackets(rangeMatch[2].trim());
+    if (
+      startPart !== null &&
+      endPart !== null &&
+      parseTimestampToSeconds(endPart) !== null
+    ) {
+      return parseTimestampToSeconds(startPart);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Attempts to interpret a 2-column cell pair as (time, title) or (title, time).
+ * When allowSingleNonEmpty is true (e.g. TSV or CSV table context), a row with one empty cell
+ * and one title cell is returned as 'title-only'.
+ */
+function interpretTwoColumnCells(
+  colA: string,
+  colB: string,
+  lineNumber: number,
+  allowSingleNonEmpty: boolean
+): ParsedChapterLine | null {
+  const timeA = parseTimestampCell(colA);
+  if (timeA !== null) {
+    const title = colB.trim();
+    return {
+      lineNumber,
+      kind: title.length > 0 ? 'chapter' : 'marker-only',
+      timeSec: timeA,
+      title,
+    };
+  }
+
+  const timeB = parseTimestampCell(colB);
+  if (timeB !== null) {
+    const title = colA.trim();
+    return {
+      lineNumber,
+      kind: title.length > 0 ? 'chapter' : 'marker-only',
+      timeSec: timeB,
+      title,
+    };
+  }
+
+  if (allowSingleNonEmpty) {
+    const trimA = colA.trim();
+    const trimB = colB.trim();
+    if (trimA.length > 0 && trimB.length === 0) {
+      return { lineNumber, kind: 'title-only', timeSec: null, title: trimA };
+    }
+    if (trimB.length > 0 && trimA.length === 0) {
+      return { lineNumber, kind: 'title-only', timeSec: null, title: trimB };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalizes a delimited row to 2 columns by dropping trailing empty cells if more than 2 columns exist.
+ */
+function toTwoColumns(cells: string[] | null): [string, string] | null {
+  if (!cells || cells.length < 2) return null;
+  const trimmed = [...cells];
+  while (trimmed.length > 2 && trimmed[trimmed.length - 1] === '') {
+    trimmed.pop();
+  }
+  if (trimmed.length !== 2) return null;
+  return [trimmed[0], trimmed[1]];
+}
+
+interface ParseLineOptions {
+  csvTableContext?: boolean;
+}
 
 /**
  * Parses a single non-empty line into a timed chapter, marker-only timestamp, or title-only entry.
+ * Supports 2-column tabular formats (TSV, RFC 4180 CSV, multi-space) as well as flexible freeform lines.
  * Uses linear-time boundary matching (ReDoS-safe) and preserves brackets inside titles (e.g. "(21)", "[J]").
  */
 export function parseSingleChapterLine(
   rawLine: string,
-  lineNumber: number
+  lineNumber: number,
+  options?: ParseLineOptions
 ): ParsedChapterLine | null {
-  const line = rawLine.replace(ZERO_WIDTH_EDGE_RE, '');
+  const zwClean = rawLine.replace(ZERO_WIDTH_ONLY_EDGE_RE, '');
+  if (!zwClean.trim()) return null;
+
+  // 0a. Tab-separated 2-column table (Excel / Google Sheets copy-paste, including partial empty cells)
+  if (zwClean.includes('\t')) {
+    const tsvCols = toTwoColumns(parseDelimitedRow(zwClean, '\t'));
+    if (tsvCols) {
+      const interpreted = interpretTwoColumnCells(tsvCols[0], tsvCols[1], lineNumber, true);
+      if (interpreted) return interpreted;
+    }
+  }
+
+  const line = zwClean.replace(ZERO_WIDTH_EDGE_RE, '');
   if (!line) return null;
+
+  // 0b. Comma-separated 2-column table (RFC 4180 CSV with quoted fields)
+  if (line.includes(',')) {
+    const csvCols = toTwoColumns(parseDelimitedRow(line, ','));
+    if (csvCols) {
+      const allowEmptyTitleCell = Boolean(options?.csvTableContext) || line.startsWith(',');
+      const interpreted = interpretTwoColumnCells(
+        csvCols[0],
+        csvCols[1],
+        lineNumber,
+        allowEmptyTitleCell
+      );
+      if (interpreted) return interpreted;
+    }
+  }
+
+  // 0c. Multi-space separated 2-column table (2+ ASCII spaces or 1+ full-width spaces around columns)
+  const multiSpaceParts = line.split(/[ \t]{2,}|\u3000+/);
+  if (multiSpaceParts.length === 2) {
+    const interpreted = interpretTwoColumnCells(
+      multiSpaceParts[0],
+      multiSpaceParts[1],
+      lineNumber,
+      false
+    );
+    if (interpreted) return interpreted;
+  }
 
   // 1. Leading timestamp: optional bullet/index, optional wrapping bracket, timestamp, optional range end, title
   const leadingRe =
@@ -322,7 +544,8 @@ export function parseSingleChapterLine(
 
 /**
  * Line-by-line unified chapter text parser.
- * Handles mixed inputs containing timed chapters, timestamp-only markers, and title-only lines.
+ * Handles mixed inputs containing timed chapters, timestamp-only markers, title-only lines,
+ * and 2-column spreadsheet/CSV/TSV/multi-space tables.
  */
 export function parseChapterTextLines(raw: string): UnifiedChapterImportParseResult {
   const rawLines = raw.split(/\r\n|\n|\r/);
@@ -331,8 +554,18 @@ export function parseChapterTextLines(raw: string): UnifiedChapterImportParseRes
   let markerOnlyCount = 0;
   let titleOnlyCount = 0;
 
+  // Detect whether this batch contains at least one 2-column CSV timestamp row
+  // so trailing-comma title-only rows like "Intro," in CSV tables strip the delimiter cleanly.
+  const csvTableContext = rawLines.some((rawLine) => {
+    const clean = rawLine.replace(ZERO_WIDTH_EDGE_RE, '');
+    if (!clean.includes(',')) return false;
+    const cols = toTwoColumns(parseDelimitedRow(clean, ','));
+    if (!cols) return false;
+    return parseTimestampCell(cols[0]) !== null || parseTimestampCell(cols[1]) !== null;
+  });
+
   rawLines.forEach((rawLine, idx) => {
-    const parsed = parseSingleChapterLine(rawLine, idx + 1);
+    const parsed = parseSingleChapterLine(rawLine, idx + 1, { csvTableContext });
     if (!parsed) return;
     lines.push(parsed);
     if (parsed.kind === 'chapter') chapterCount++;

@@ -184,15 +184,110 @@ describe('parseChapterTextLines', () => {
       '12:00のニュース',
       'https://example.com:8080/watch',
       'Just a plain title',
+      'Part 1, Part 2',
+      '00:00 Hello, World',
     ].join('\n');
 
     const result = parseChapterTextLines(input);
-    assert.equal(result.chapterCount, 0);
+    assert.equal(result.chapterCount, 1);
     assert.equal(result.markerOnlyCount, 0);
-    assert.equal(result.titleOnlyCount, 3);
+    assert.equal(result.titleOnlyCount, 4);
     assert.deepEqual(
-      result.lines.map((l) => l.title),
-      ['12:00のニュース', 'https://example.com:8080/watch', 'Just a plain title']
+      result.lines.map((l) => [l.kind, l.timeSec, l.title]),
+      [
+        ['title-only', null, '12:00のニュース'],
+        ['title-only', null, 'https://example.com:8080/watch'],
+        ['title-only', null, 'Just a plain title'],
+        ['title-only', null, 'Part 1, Part 2'],
+        ['chapter', 0, 'Hello, World'],
+      ]
+    );
+  });
+
+  it('parses 2-column TSV (Excel/Sheets copy-paste) including reversed columns, quotes, and partial empty cells', () => {
+    const tsv = [
+      '00:00\tオープニング',
+      '本編スタート\t04:56',
+      '[00:10:00]\t"Quoted ""Title"" Here"',
+      '00:15:00 - 00:20:00\t範囲タイムスタンプセル',
+      '\tデイリー[Q]',
+      '未割当タイトル\t',
+      '00:38:22\t',
+      '\t00:45:00',
+      '01:00:00\tエンディング\t',
+    ].join('\n');
+
+    const result = parseChapterTextLines(tsv);
+    assert.equal(result.chapterCount, 5);
+    assert.equal(result.markerOnlyCount, 2);
+    assert.equal(result.titleOnlyCount, 2);
+    assert.deepEqual(
+      result.lines.map((l) => [l.kind, l.timeSec, l.title]),
+      [
+        ['chapter', 0, 'オープニング'],
+        ['chapter', 296, '本編スタート'],
+        ['chapter', 600, 'Quoted "Title" Here'],
+        ['chapter', 900, '範囲タイムスタンプセル'],
+        ['title-only', null, 'デイリー[Q]'],
+        ['title-only', null, '未割当タイトル'],
+        ['marker-only', 2302, ''],
+        ['marker-only', 2700, ''],
+        ['chapter', 3600, 'エンディング'],
+      ]
+    );
+  });
+
+  it('parses 2-column CSV (RFC 4180 quoted commas, reversed columns, and empty cells)', () => {
+    const csv = [
+      '00:00,オープニング',
+      '04:56,"星々の幻境, パート1"',
+      '"タイトル, 先行 (""引用"")",10:30',
+      ',未割当タイトルA',
+      '未割当タイトルB,',
+      '00:38:22,',
+      ',00:45:00',
+      '"01:00:00","エンディング",',
+    ].join('\n');
+
+    const result = parseChapterTextLines(csv);
+    assert.equal(result.chapterCount, 4);
+    assert.equal(result.markerOnlyCount, 2);
+    assert.equal(result.titleOnlyCount, 2);
+    assert.deepEqual(
+      result.lines.map((l) => [l.kind, l.timeSec, l.title]),
+      [
+        ['chapter', 0, 'オープニング'],
+        ['chapter', 296, '星々の幻境, パート1'],
+        ['chapter', 630, 'タイトル, 先行 ("引用")'],
+        ['title-only', null, '未割当タイトルA'],
+        ['title-only', null, '未割当タイトルB'],
+        ['marker-only', 2302, ''],
+        ['marker-only', 2700, ''],
+        ['chapter', 3600, 'エンディング'],
+      ]
+    );
+  });
+
+  it('parses 2-column multi-space and full-width-space separated rows', () => {
+    const spaced = [
+      '00:00    オープニング',
+      '星々の幻境 ドットーレの地下室(21)    00:04:56',
+      '00:10:00\u3000\u3000セクション1',
+      'まとめ\u3000\u300001:00:00',
+    ].join('\n');
+
+    const result = parseChapterTextLines(spaced);
+    assert.equal(result.chapterCount, 4);
+    assert.equal(result.markerOnlyCount, 0);
+    assert.equal(result.titleOnlyCount, 0);
+    assert.deepEqual(
+      result.lines.map((l) => [l.timeSec, l.title]),
+      [
+        [0, 'オープニング'],
+        [296, '星々の幻境 ドットーレの地下室(21)'],
+        [600, 'セクション1'],
+        [3600, 'まとめ'],
+      ]
     );
   });
 });

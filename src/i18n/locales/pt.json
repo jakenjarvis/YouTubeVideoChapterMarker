@@ -258,7 +258,7 @@
     "downloadTxt": "Salvar .txt",
     "copied": "Copiado",
     "copyToClipboard": "Copiar para área de transferência",
-    "importDesc": "Cada linha é reconhecida automaticamente. Misture livremente capítulos com tempo (00:00 Título, 00:00 - Título, Título 00:00), linhas só com tempo e linhas só com título.",
+    "importDesc": "Cada linha é reconhecida automaticamente. Misture livremente capítulos com tempo (00:00 Título, 00:00 - Título, Título 00:00), tabelas de 2 colunas coladas de planilhas (tabulação, CSV ou vários espaços), linhas só com tempo e linhas só com título.",
     "importPlaceholder": "00:00 Introdução\n04:56 Tema principal\nLinha só com título (adicionada sem vínculo)\n00:38:22\n01:12:00 Encerramento",
     "detectedSummaryPrefix": "Detectado:",
     "detectedChaptersCount": {

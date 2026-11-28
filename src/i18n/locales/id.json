@@ -238,7 +238,7 @@
     "downloadTxt": "Simpan .txt",
     "copied": "Disalin",
     "copyToClipboard": "Salin ke Clipboard",
-    "importDesc": "Setiap baris dideteksi otomatis. Anda dapat mencampur chapter bertimestamp (00:00 Judul, 00:00 - Judul, Judul 00:00), baris waktu saja, maupun baris judul saja.",
+    "importDesc": "Setiap baris dideteksi otomatis. Anda dapat mencampur chapter bertimestamp (00:00 Judul, 00:00 - Judul, Judul 00:00), tempelan tabel 2 kolom dari spreadsheet (dipisah tab, CSV, atau beberapa spasi), baris waktu saja, maupun baris judul saja.",
     "importPlaceholder": "00:00 Pembukaan\n04:56 Pembahasan Utama\nBaris judul saja (masuk ke daftar belum terpasang)\n00:38:22\n01:12:00 Penutup",
     "detectedSummaryPrefix": "Terdeteksi:",
     "detectedChaptersCount": "{{count}} chapter",

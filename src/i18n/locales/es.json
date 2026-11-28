@@ -253,7 +253,7 @@
     "downloadTxt": "Guardar .txt",
     "copied": "Copiado",
     "copyToClipboard": "Copiar al portapapeles",
-    "importDesc": "Cada línea se detecta automáticamente. Puedes mezclar capítulos con tiempo (00:00 Título, 00:00 - Título, Título 00:00), líneas solo con tiempo y líneas solo con título.",
+    "importDesc": "Cada línea se detecta automáticamente. Puedes mezclar capítulos con tiempo (00:00 Título, 00:00 - Título, Título 00:00), tablas de 2 columnas pegadas desde hojas de cálculo (tabulaciones, CSV o varios espacios), líneas solo con tiempo y líneas solo con título.",
     "importPlaceholder": "00:00 Intro\n04:56 Tema principal\nLínea solo título (se añade sin asignar)\n00:38:22\n01:12:00 Cierre",
     "detectedSummaryPrefix": "Detectado:",
     "detectedChaptersCount": {

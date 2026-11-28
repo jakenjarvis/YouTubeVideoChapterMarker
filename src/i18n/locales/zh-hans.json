@@ -238,7 +238,7 @@
     "downloadTxt": "保存 .txt",
     "copied": "已复制",
     "copyToClipboard": "复制到剪贴板",
-    "importDesc": "按行自动识别。可将带时间戳章节（00:00 标题、00:00 - 标题、标题 00:00）、仅时间行与仅标题行混合粘贴并直接导入。",
+    "importDesc": "按行自动识别。可将带时间戳章节（00:00 标题、00:00 - 标题、标题 00:00）、来自 Excel/表格的 2 列粘贴内容（制表符、CSV 或连续空格分隔）、仅时间行与仅标题行混合粘贴并直接导入。",
     "importPlaceholder": "00:00 开场\n04:56 正片开始\n仅标题行（将作为未分配标题导入）\n00:38:22\n01:12:00 总结",
     "detectedSummaryPrefix": "识别结果：",
     "detectedChaptersCount": "时间+标题 {{count}} 条",

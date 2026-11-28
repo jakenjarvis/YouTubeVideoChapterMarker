@@ -102,6 +102,9 @@ describe('ReDoS & pathological massive-input resilience', () => {
     ['40KB nested open/close parens around timestamp', '('.repeat(20000) + '00:00' + ')'.repeat(20000)],
     ['50KB colon noise', '12:34:56:78:90 '.repeat(3500)],
     ['50KB zero-width padding around valid line', '\u200B'.repeat(25000) + '01:23 Safe' + '\uFEFF'.repeat(25000)],
+    ['50KB unclosed CSV quotes and commas', '"' + 'a,'.repeat(25000)],
+    ['50KB repeated tabs', '\t'.repeat(50000) + '00:00'],
+    ['50KB repeated double spaces', 'a  '.repeat(16000) + '00:00'],
   ];
 
   for (const [label, payload] of pathologicalLines) {

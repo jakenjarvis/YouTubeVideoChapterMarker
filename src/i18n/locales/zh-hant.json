@@ -238,7 +238,7 @@
     "downloadTxt": "下載 .txt",
     "copied": "已複製",
     "copyToClipboard": "複製到剪貼簿",
-    "importDesc": "逐行自動辨識。可自由混合含時間戳記章節（00:00 標題、00:00 - 標題、標題 00:00）、純時間行與純標題行直接匯入。",
+    "importDesc": "逐行自動辨識。可自由混合含時間戳記章節（00:00 標題、00:00 - 標題、標題 00:00）、從 Excel/試算表貼上的 2 欄表格（Tab、CSV 或多個空格分隔）、純時間行與純標題行直接匯入。",
     "importPlaceholder": "00:00 開場\n04:56 正片開始\n純標題行（將加入未指定清單）\n00:38:22\n01:12:00 結尾",
     "detectedSummaryPrefix": "辨識結果：",
     "detectedChaptersCount": "時間+標題 {{count}} 筆",
