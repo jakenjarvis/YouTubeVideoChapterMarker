@@ -43,6 +43,8 @@
     "loadYouTube": "YouTube",
     "importTitles": "استيراد نص",
     "shortcuts": "الاختصارات",
+    "help": "مساعدة",
+    "openHelpNewTab": "فتح في علامة تبويب جديدة",
     "importExportText": "تصدير نص",
     "openVideo": "فتح فيديو",
     "languageSwitcherAriaLabel": "اختيار لغة العرض",
@@ -113,6 +115,9 @@
     "sampleDesc": "لا يتوفر لديك ملف فيديو الآن؟ أنشئ فيديو تجريبيًا مدته 15 ثانية من 5 مشاهد مع نغمات صوتية داخل المتصفح لتجربة سير العمل بالكامل.",
     "sampleGenerating": "جارٍ إنشاء العينة {{percent}}%",
     "sampleTryButton": "تجربة فيديو العينة",
+    "guideBannerTitle": "دليل السيناريوهات المصوّر (10 مسارات)",
+    "guideBannerDesc": "اطّلع بالرسوم التوضيحية على طرق العمل للفيديو الطويل، شريط التكبير، الجداول، وتعديل يوتيوب.",
+    "guideOpenButton": "فتح الدليل المصوّر (10)",
     "previousLoad": "آخر ملف محمّل: {{fileName}}"
   },
   "metadataBar": {
@@ -267,6 +272,8 @@
     "layoutTitleSpaceTime": "العنوان ⁦00:00⁩",
     "layoutTitleDashTime": "العنوان - ⁦00:00⁩",
     "layoutNonYouTubeChapterNote": "تنسيقات العنوان أولًا لا تنشئ فصولًا على شريط تشغيل YouTube (تظل الأوقات روابط قابلة للنقر).",
+    "layoutTitleOnly": "العناوين فقط (للترجمة والاستبدال)",
+    "layoutTitleOnlyNote": "يُصدِّر العناوين فقط دون أوقات. بعد الترجمة أو التعديل، الصقها عبر «إدخال النص» مع خيار استبدال العناوين للحفاظ على جميع الأوقات.",
     "ytCheckReady": "يستوفي شروط فصول YouTube",
     "ytCheckNeedsZero": "يجب أن يبدأ عند ⁦0:00⁩",
     "ytCheckNeedsThree": "يلزم 3 فصول على الأقل",

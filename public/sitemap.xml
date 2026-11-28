@@ -205,4 +205,208 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/en/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/ja/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/es/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/ko/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/zh-hant/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/pt/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/zh-hans/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/de/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/fr/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/id/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://youtube-video-chapter-marker.vercel.app/ar/help/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://youtube-video-chapter-marker.vercel.app/en/help/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://youtube-video-chapter-marker.vercel.app/ja/help/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://youtube-video-chapter-marker.vercel.app/es/help/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://youtube-video-chapter-marker.vercel.app/ko/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://youtube-video-chapter-marker.vercel.app/zh-hant/help/" />
+    <xhtml:link rel="alternate" hreflang="pt" href="https://youtube-video-chapter-marker.vercel.app/pt/help/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://youtube-video-chapter-marker.vercel.app/zh-hans/help/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://youtube-video-chapter-marker.vercel.app/de/help/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://youtube-video-chapter-marker.vercel.app/fr/help/" />
+    <xhtml:link rel="alternate" hreflang="id" href="https://youtube-video-chapter-marker.vercel.app/id/help/" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://youtube-video-chapter-marker.vercel.app/ar/help/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://youtube-video-chapter-marker.vercel.app/help/" />
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>

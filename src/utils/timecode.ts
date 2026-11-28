@@ -105,7 +105,8 @@ export type ExportLineLayout =
   | 'time-space-title'
   | 'time-dash-title'
   | 'title-space-time'
-  | 'title-dash-time';
+  | 'title-dash-time'
+  | 'title-only';
 
 export interface ChapterExportOptions {
   timeFormat: ExportTimeFormat;
@@ -132,6 +133,7 @@ export interface UnifiedChapterImportParseResult {
 
 export interface YouTubeChapterValidation {
   isTitleFirstLayout: boolean;
+  isTitleOnlyLayout: boolean;
   chapterCount: number;
   startsAtZero: boolean;
   hasMinimumCount: boolean;
@@ -611,6 +613,9 @@ export function exportChapterText(
 
   return items
     .map(({ timeSec, title }) => {
+      if (options.layout === 'title-only') {
+        return title;
+      }
       const tc = formatTimecodeByStyle(timeSec, options.timeFormat, useHoursForAuto);
       if (!title) {
         return tc;
@@ -640,6 +645,7 @@ export function validateYouTubeChapters(
 ): YouTubeChapterValidation {
   const isTitleFirstLayout =
     options.layout === 'title-space-time' || options.layout === 'title-dash-time';
+  const isTitleOnlyLayout = options.layout === 'title-only';
 
   const sortedMarkers = [...markers].sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex);
   const titleByMarkerId = new Map<string, ChapterTitle>();
@@ -671,11 +677,17 @@ export function validateYouTubeChapters(
 
   return {
     isTitleFirstLayout,
+    isTitleOnlyLayout,
     chapterCount,
     startsAtZero,
     hasMinimumCount,
     hasMinimumIntervals,
-    isValid: !isTitleFirstLayout && startsAtZero && hasMinimumCount && hasMinimumIntervals,
+    isValid:
+      !isTitleFirstLayout &&
+      !isTitleOnlyLayout &&
+      startsAtZero &&
+      hasMinimumCount &&
+      hasMinimumIntervals,
   };
 }
 

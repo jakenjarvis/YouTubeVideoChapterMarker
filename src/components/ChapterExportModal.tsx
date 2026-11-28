@@ -49,7 +49,8 @@ function readStoredLayout(): ExportLineLayout {
       v === 'time-space-title' ||
       v === 'time-dash-title' ||
       v === 'title-space-time' ||
-      v === 'title-dash-time'
+      v === 'title-dash-time' ||
+      v === 'title-only'
     ) {
       return v;
     }
@@ -148,8 +149,9 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const isTitleOnly = layout === 'title-only';
   const ytIssues: string[] = [];
-  if (ytValidation.chapterCount > 0 && !ytValidation.isTitleFirstLayout) {
+  if (ytValidation.chapterCount > 0 && !ytValidation.isTitleFirstLayout && !ytValidation.isTitleOnlyLayout) {
     if (!ytValidation.startsAtZero) ytIssues.push(t('importExport.ytCheckNeedsZero'));
     if (!ytValidation.hasMinimumCount) ytIssues.push(t('importExport.ytCheckNeedsThree'));
     if (!ytValidation.hasMinimumIntervals) ytIssues.push(t('importExport.ytCheckNeedsTenSec'));
@@ -205,14 +207,17 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
                   <button
                     key={opt.value}
                     type="button"
+                    disabled={isTitleOnly}
                     dir={opt.ltr ? 'ltr' : undefined}
                     onClick={() => handleSelectTimeFormat(opt.value)}
-                    className={`px-2 py-1.5 text-[11px] font-medium rounded border transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`px-2 py-1.5 text-[11px] font-medium rounded border transition-colors whitespace-nowrap ${
                       opt.ltr ? 'font-mono-tabular' : ''
                     } ${
-                      timeFormat === opt.value
-                        ? 'bg-[#222834] border-amber-400/50 text-amber-300'
-                        : 'bg-[#14171C] border-[#262C38] text-[#94A0B2] hover:text-[#F3F5F8]'
+                      isTitleOnly
+                        ? 'opacity-40 cursor-not-allowed bg-[#14171C] border-[#262C38] text-[#647082]'
+                        : timeFormat === opt.value
+                          ? 'cursor-pointer bg-[#222834] border-amber-400/50 text-amber-300'
+                          : 'cursor-pointer bg-[#14171C] border-[#262C38] text-[#94A0B2] hover:text-[#F3F5F8]'
                     }`}
                   >
                     {opt.label}
@@ -238,13 +243,14 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
                 <option value="time-dash-title">{t('importExport.layoutTimeDashTitle')}</option>
                 <option value="title-space-time">{t('importExport.layoutTitleSpaceTime')}</option>
                 <option value="title-dash-time">{t('importExport.layoutTitleDashTime')}</option>
+                <option value="title-only">{t('importExport.layoutTitleOnly')}</option>
               </select>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#94A0B2]">
             <span className="text-[11px] text-[#7D899B]">
-              {timeFormat === 'auto' ? t('importExport.timeFormatAutoHint') : ''}
+              {!isTitleOnly && timeFormat === 'auto' ? t('importExport.timeFormatAutoHint') : ''}
             </span>
             <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[#CBD5E1]">
               <input
@@ -264,6 +270,13 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
             </div>
           )}
 
+          {isTitleOnly && (
+            <div className="flex items-start gap-2 text-xs text-sky-300 bg-sky-500/10 border border-sky-500/25 rounded-md px-3 py-2">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{t('importExport.layoutTitleOnlyNote')}</span>
+            </div>
+          )}
+
           {untimedTitleCount > 0 && (
             <div className="flex items-start gap-2 text-xs text-sky-300 bg-sky-500/10 border border-sky-500/25 rounded-md px-3 py-2">
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -273,7 +286,7 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
 
           <textarea
             readOnly
-            dir={exportedText ? 'ltr' : undefined}
+            dir={isTitleOnly ? 'auto' : exportedText ? 'ltr' : undefined}
             value={exportedText}
             rows={9}
             placeholder={t('importExport.exportPlaceholder')}
@@ -281,7 +294,7 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
           />
 
           {/* YouTube Chapter Readiness Indicator */}
-          {exportedText && !ytValidation.isTitleFirstLayout && (
+          {exportedText && !ytValidation.isTitleFirstLayout && !ytValidation.isTitleOnlyLayout && (
             <div
               className={`flex items-center gap-2 text-xs rounded-md px-3 py-2 border ${
                 ytValidation.isValid

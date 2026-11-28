@@ -46,9 +46,13 @@ describe('Project configuration invariants', () => {
       rewrites: Array<{ source: string; destination: string }>;
     };
     const rewriteSources = new Set(vercel.rewrites.map((r) => r.source));
+    assert.ok(rewriteSources.has('/help'), 'Missing vercel rewrite for /help');
+    assert.ok(rewriteSources.has('/help/'), 'Missing vercel rewrite for /help/');
     for (const loc of SUPPORTED_LOCALES) {
       assert.ok(rewriteSources.has(`/${loc.code}`), `Missing vercel rewrite for /${loc.code}`);
       assert.ok(rewriteSources.has(`/${loc.code}/`), `Missing vercel rewrite for /${loc.code}/`);
+      assert.ok(rewriteSources.has(`/${loc.code}/help`), `Missing vercel rewrite for /${loc.code}/help`);
+      assert.ok(rewriteSources.has(`/${loc.code}/help/`), `Missing vercel rewrite for /${loc.code}/help/`);
     }
   });
 });
@@ -111,5 +115,37 @@ describe('Built dist/ SEO & static asset integrity', () => {
       assert.ok(types.includes('WebApplication'), `[${loc.code}] Missing WebApplication JSON-LD`);
       assert.ok(types.includes('FAQPage'), `[${loc.code}] Missing FAQPage JSON-LD`);
     });
+
+    it(`verifies generated static visual help page for /${loc.code}/help/`, () => {
+      const helpPath = path.join(DIST_DIR, loc.code, 'help', 'index.html');
+      assert.ok(fs.existsSync(helpPath), `Missing generated help HTML at ${helpPath}`);
+      const html = fs.readFileSync(helpPath, 'utf8');
+
+      assert.ok(
+        html.includes(`<html lang="${loc.htmlLang}" dir="${loc.dir}"`),
+        `[${loc.code}/help] Incorrect <html lang/dir>`
+      );
+      assert.ok(html.includes('ca-pub-8666829667737106'), `[${loc.code}/help] AdSense missing`);
+      assert.ok(
+        html.includes('https://www.googletagmanager.com/gtm.js?id=GTM-W8NKMDP7'),
+        `[${loc.code}/help] GTM script missing`
+      );
+      for (let i = 1; i <= 10; i++) {
+        const sid = String(i).padStart(2, '0');
+        assert.ok(
+          html.includes(`id="scenario-${sid}"`),
+          `[${loc.code}/help] Missing scenario-${sid}`
+        );
+      }
+    });
   }
+
+  it('verifies generated root static visual help page at /help/', () => {
+    const rootHelpPath = path.join(DIST_DIR, 'help', 'index.html');
+    assert.ok(fs.existsSync(rootHelpPath), 'Missing generated root help HTML at dist/help/index.html');
+    const html = fs.readFileSync(rootHelpPath, 'utf8');
+    assert.ok(html.includes('<html lang="en" dir="ltr"'));
+    assert.ok(html.includes('id="scenario-10"'));
+    assert.ok(html.includes(`"softwareVersion":"${PKG.version}"`));
+  });
 });

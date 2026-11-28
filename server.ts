@@ -9,9 +9,23 @@ import {
   type ParsedYouTubeChapter,
   type YouTubeVideoInfoResponse,
 } from './src/utils/youtube.ts';
+import { HELP_LOCALES } from './src/help/helpLocales.ts';
+import { renderHelpPageHtml } from './src/help/renderHelpHtml.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const HELP_LOCALE_CODES = new Set(HELP_LOCALES.map((l) => l.code));
+const DEFAULT_SITE_URL = 'https://youtube-video-chapter-marker.vercel.app';
+const APP_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as {
+      version?: string;
+    };
+    return pkg.version ?? '1.11.0';
+  } catch {
+    return '1.11.0';
+  }
+})();
 
 const PORT = Number(process.env.PORT || 3000);
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -410,6 +424,40 @@ async function startServer() {
       app.use(express.static(publicDir));
     }
 
+    // Serve static visual workflow help pages in dev mode (/help/ and /<locale>/help/)
+    const rawSiteUrl = (process.env.VITE_SITE_URL ?? '').trim();
+    const siteUrl =
+      rawSiteUrl && /^https?:\/\//i.test(rawSiteUrl)
+        ? rawSiteUrl.replace(/\/+$/, '')
+        : DEFAULT_SITE_URL;
+
+    app.get(['/help', '/help/'], (_req, res) => {
+      res.status(200).type('html').send(
+        renderHelpPageHtml({
+          localeCode: 'en',
+          siteUrl,
+          appVersion: APP_VERSION,
+          isRootHelp: true,
+        })
+      );
+    });
+
+    app.get(['/:locale/help', '/:locale/help/'], (req, res, next) => {
+      const loc = String(req.params.locale || '').toLowerCase();
+      if (!HELP_LOCALE_CODES.has(loc)) {
+        next();
+        return;
+      }
+      res.status(200).type('html').send(
+        renderHelpPageHtml({
+          localeCode: loc,
+          siteUrl,
+          appVersion: APP_VERSION,
+          isRootHelp: false,
+        })
+      );
+    });
+
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
@@ -423,6 +471,27 @@ async function startServer() {
     const distDir = path.resolve(__dirname, 'dist');
     app.use(express.static(distDir));
     app.get('*', (req, res) => {
+      const cleanPath = req.path.replace(/\/+$/, '') || '/';
+      if (cleanPath === '/help') {
+        const helpIndex = path.join(distDir, 'help', 'index.html');
+        if (fs.existsSync(helpIndex)) {
+          res.sendFile(helpIndex);
+          return;
+        }
+      }
+      const localeHelpMatch = /^\/([a-z]{2}(?:-[a-z]{2,4})?)\/help$/i.exec(cleanPath);
+      if (localeHelpMatch) {
+        const locHelpIndex = path.resolve(
+          distDir,
+          localeHelpMatch[1].toLowerCase(),
+          'help',
+          'index.html'
+        );
+        if (locHelpIndex.startsWith(distDir + path.sep) && fs.existsSync(locHelpIndex)) {
+          res.sendFile(locHelpIndex);
+          return;
+        }
+      }
       const localeMatch = /^\/([a-z]{2}(?:-[a-z]{2,4})?)(?:\/|$)/i.exec(req.path);
       if (localeMatch) {
         const localeIndex = path.resolve(distDir, localeMatch[1].toLowerCase(), 'index.html');

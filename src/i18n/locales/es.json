@@ -43,6 +43,8 @@
     "loadYouTube": "YouTube",
     "importTitles": "Importar texto",
     "shortcuts": "Atajos",
+    "help": "Ayuda",
+    "openHelpNewTab": "Abrir en nueva pestaña",
     "importExportText": "Exportar texto",
     "openVideo": "Abrir video",
     "languageSwitcherAriaLabel": "Seleccionar idioma",
@@ -105,6 +107,9 @@
     "sampleDesc": "¿No tienes un video a mano? Genera en tu navegador un video de prueba de 15 segundos y 5 escenas con audio para probar el flujo completo.",
     "sampleGenerating": "Generando ejemplo {{percent}}%",
     "sampleTryButton": "Probar video de ejemplo",
+    "guideBannerTitle": "Guía visual de uso (10 escenarios)",
+    "guideBannerDesc": "Explora diagramas para marcado, zoom por rango, modo hoja y corrección de capítulos de YouTube.",
+    "guideOpenButton": "Abrir guía visual (10)",
     "previousLoad": "Último archivo cargado: {{fileName}}"
   },
   "metadataBar": {
@@ -251,6 +256,8 @@
     "layoutTitleSpaceTime": "Título 00:00",
     "layoutTitleDashTime": "Título - 00:00",
     "layoutNonYouTubeChapterNote": "El formato con título primero no genera capítulos en la barra de YouTube (los tiempos siguen funcionando como enlaces).",
+    "layoutTitleOnly": "Solo títulos (para traducir / reemplazar)",
+    "layoutTitleOnlyNote": "Exporta solo los títulos sin tiempos. Tras traducirlos, pégalos en «Entrada de texto» marcando «Reemplazar títulos existentes» para conservar todas las marcas de tiempo.",
     "ytCheckReady": "Cumple los requisitos de capítulos de YouTube",
     "ytCheckNeedsZero": "Debe empezar en 0:00",
     "ytCheckNeedsThree": "Se necesitan al menos 3 capítulos",

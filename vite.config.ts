@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {renderHelpPageHtml} from './src/help/renderHelpHtml.ts';
 
 interface SeoLocaleDictionary {
   meta: {
@@ -23,6 +24,7 @@ interface SeoLocaleDictionary {
     step2Desc: string;
     step3Title: string;
     step3Desc: string;
+    guideOpenButton: string;
   };
   faq: {
     heading: string;
@@ -129,7 +131,7 @@ function buildJsonLd(
   };
 }
 
-function buildPreHydrationMarkup(dict: SeoLocaleDictionary): string {
+function buildPreHydrationMarkup(dict: SeoLocaleDictionary, helpHref: string): string {
   const introDesc = `${dict.loading.introDescPrefix}${dict.loading.introDescFormatExample}${dict.loading.introDescSuffix}`;
   const faqPairs: Array<[string, string]> = [
     [dict.faq.q1, dict.faq.a1],
@@ -160,6 +162,7 @@ function buildPreHydrationMarkup(dict: SeoLocaleDictionary): string {
     '<main class="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12">',
     `<h1 class="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight">${escapeHtml(dict.loading.introHeading)}</h1>`,
     `<p class="mt-3 text-sm sm:text-base text-[#94A0B2] max-w-2xl leading-relaxed">${escapeHtml(introDesc)}</p>`,
+    `<div class="mt-4"><a href="${escapeHtml(helpHref)}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#38BDF8] hover:underline">${escapeHtml(dict.loading.guideOpenButton)}</a></div>`,
     '<section class="mt-8 pt-6 border-t border-[#222730] grid grid-cols-1 md:grid-cols-3 gap-6">',
     `<div><h2 class="text-xs font-mono text-[#647082] mb-1">${escapeHtml(dict.loading.step1Title)}</h2><p class="text-xs text-[#94A0B2] leading-relaxed">${escapeHtml(dict.loading.step1Desc)}</p></div>`,
     `<div><h2 class="text-xs font-mono text-[#647082] mb-1">${escapeHtml(dict.loading.step2Title)}</h2><p class="text-xs text-[#94A0B2] leading-relaxed">${escapeHtml(dict.loading.step2Desc)}</p></div>`,
@@ -290,31 +293,55 @@ function renderSeoHtml(params: {
       .replace(/href="\/favicon\.svg"/g, 'href="../favicon.svg"');
   }
 
-  const preHydration = buildPreHydrationMarkup(dict);
+  const helpHref = isSubdir ? `/${localeCfg.code}/help/` : '/help/';
+  const preHydration = buildPreHydrationMarkup(dict, helpHref);
   html = html.replace(/<div id="root"><\/div>/i, `<div id="root">${preHydration}</div>`);
 
   return html;
 }
 
 function buildSitemapXml(siteUrl: string): string {
-  const urls = [
+  const appUrls = [
     {loc: `${siteUrl}/`, priority: '1.0'},
     ...SEO_LOCALES.map((loc) => ({loc: `${siteUrl}/${loc.code}/`, priority: '0.9'})),
   ];
 
-  const xhtmlLinks = [
+  const appXhtmlLinks = [
     ...SEO_LOCALES.map(
       (loc) => `    <xhtml:link rel="alternate" hreflang="${loc.htmlLang}" href="${siteUrl}/${loc.code}/" />`
     ),
     `    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/" />`,
   ].join('\n');
 
-  const entries = urls
+  const helpUrls = [
+    {loc: `${siteUrl}/help/`, priority: '0.8'},
+    ...SEO_LOCALES.map((loc) => ({loc: `${siteUrl}/${loc.code}/help/`, priority: '0.7'})),
+  ];
+
+  const helpXhtmlLinks = [
+    ...SEO_LOCALES.map(
+      (loc) => `    <xhtml:link rel="alternate" hreflang="${loc.htmlLang}" href="${siteUrl}/${loc.code}/help/" />`
+    ),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/help/" />`,
+  ].join('\n');
+
+  const appEntries = appUrls
     .map(
       ({loc, priority}) => `  <url>
     <loc>${loc}</loc>
-${xhtmlLinks}
+${appXhtmlLinks}
     <changefreq>weekly</changefreq>
+    <priority>${priority}</priority>
+  </url>`
+    )
+    .join('\n');
+
+  const helpEntries = helpUrls
+    .map(
+      ({loc, priority}) => `  <url>
+    <loc>${loc}</loc>
+${helpXhtmlLinks}
+    <changefreq>monthly</changefreq>
     <priority>${priority}</priority>
   </url>`
     )
@@ -323,7 +350,8 @@ ${xhtmlLinks}
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${entries}
+${appEntries}
+${helpEntries}
 </urlset>
 `;
 }
@@ -448,7 +476,35 @@ export default defineConfig(({command}) => {
               }),
               'utf-8'
             );
+
+            // Static visual workflow help page for each locale: /<locale>/help/
+            const locHelpDir = path.join(locDir, 'help');
+            fs.mkdirSync(locHelpDir, {recursive: true});
+            fs.writeFileSync(
+              path.join(locHelpDir, 'index.html'),
+              renderHelpPageHtml({
+                localeCode: loc.code,
+                siteUrl,
+                appVersion,
+                isRootHelp: false,
+              }),
+              'utf-8'
+            );
           }
+
+          // Root default visual workflow help page: /help/
+          const rootHelpDir = path.join(distDir, 'help');
+          fs.mkdirSync(rootHelpDir, {recursive: true});
+          fs.writeFileSync(
+            path.join(rootHelpDir, 'index.html'),
+            renderHelpPageHtml({
+              localeCode: 'en',
+              siteUrl,
+              appVersion,
+              isRootHelp: true,
+            }),
+            'utf-8'
+          );
         },
       },
     ],

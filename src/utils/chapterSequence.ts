@@ -546,6 +546,7 @@ export function importParsedLinesIntoEntries(
     : replaceTitlesOnly
       ? existing
           .filter((e) => e.timeSec !== null)
+          .sort((a, b) => a.timeSec! - b.timeSec! || (a.frameIndex ?? 0) - (b.frameIndex ?? 0))
           .map((e) => ({ ...e, title: '' }))
       : [...existing];
 

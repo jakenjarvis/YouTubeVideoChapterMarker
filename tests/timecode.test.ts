@@ -349,6 +349,23 @@ describe('exportChapterText & validateYouTubeChapters', () => {
       }),
       'Intro - 00:00:00\nMain - 00:04:56\n00:20:00\nOutro - 01:47:50'
     );
+
+    assert.equal(
+      exportChapterText(markers, titles, {
+        timeFormat: 'auto',
+        layout: 'title-only',
+      }),
+      'Intro\nMain\nOutro'
+    );
+
+    assert.equal(
+      exportChapterText(markers, titles, {
+        timeFormat: 'auto',
+        layout: 'title-only',
+        includeUntitledMarkers: true,
+      }),
+      'Intro\nMain\n\nOutro'
+    );
   });
 
   it('validates YouTube chapter requirements accurately', () => {
@@ -368,7 +385,17 @@ describe('exportChapterText & validateYouTubeChapters', () => {
       layout: 'title-dash-time',
     });
     assert.equal(titleFirst.isTitleFirstLayout, true);
+    assert.equal(titleFirst.isTitleOnlyLayout, false);
     assert.equal(titleFirst.isValid, false);
+
+    // Title-only layout is intended for translation/replacement and omits timestamps
+    const titleOnly = validateYouTubeChapters(markers, titles, {
+      timeFormat: 'auto',
+      layout: 'title-only',
+    });
+    assert.equal(titleOnly.isTitleFirstLayout, false);
+    assert.equal(titleOnly.isTitleOnlyLayout, true);
+    assert.equal(titleOnly.isValid, false);
 
     // Short interval (< 10s) and missing 0:00 start
     const invalidMarkers: Marker[] = [

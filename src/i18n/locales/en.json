@@ -44,6 +44,8 @@
     "importTitles": "Import Text",
     "editAsSpreadsheet": "Edit as Table",
     "shortcuts": "Shortcuts",
+    "help": "Help",
+    "openHelpNewTab": "Open in new tab",
     "importExportText": "Export Text",
     "openVideo": "Open Video",
     "languageSwitcherAriaLabel": "Select display language",
@@ -105,6 +107,9 @@
     "sampleDesc": "No video file on hand? Generate a 15-second, 5-scene test video with audio chimes right in your browser to try the full workflow.",
     "sampleGenerating": "Generating sample {{percent}}%",
     "sampleTryButton": "Try Sample Video",
+    "guideBannerTitle": "Visual Workflow Guide (10 Scenarios)",
+    "guideBannerDesc": "See diagrammed flows for frame marking, script-first range zoom, spreadsheet editing, and YouTube fixes.",
+    "guideOpenButton": "Open Visual Guide (10)",
     "previousLoad": "Previously loaded: {{fileName}}"
   },
   "metadataBar": {
@@ -251,6 +256,8 @@
     "layoutTitleSpaceTime": "Title 00:00",
     "layoutTitleDashTime": "Title - 00:00",
     "layoutNonYouTubeChapterNote": "Title-first formats do not create YouTube seekbar chapters (timestamps still work as clickable jump links).",
+    "layoutTitleOnly": "Titles only (for translation / replace)",
+    "layoutTitleOnlyNote": "Outputs chapter titles only without timestamps. After translating or editing, paste them back via Text Input with \"Replace existing titles\" (or into Column B) to keep all timestamps intact.",
     "ytCheckReady": "Meets YouTube chapter requirements",
     "ytCheckNeedsZero": "Must start at 0:00",
     "ytCheckNeedsThree": "Needs at least 3 chapters",
@@ -266,7 +273,7 @@
     "downloadTxt": "Save .txt",
     "copied": "Copied",
     "copyToClipboard": "Copy to Clipboard",
-    "importDesc": "Each line is detected automatically. Mix timed chapters (00:00 Title, 00:00 - Title, Title 00:00), 2-column spreadsheet/table pastes (tab-separated, CSV, or multi-space), timestamp-only lines, and title-only lines freely.",
+    "importDesc": "Each line is detected automatically. Mix timed chapters (00:00 Title, 00:00 - Title, Title 00:00), 2-column tabular data (tab-separated, CSV, or multi-space), timestamp-only lines, and title-only lines freely.",
     "importPlaceholder": "00:00 Intro\n04:56 Main Topic\nTitle-only line (added as unassigned)\n00:38:22\n01:12:00 Wrap-Up",
     "detectedSummaryPrefix": "Detected:",
     "detectedChaptersCount": {

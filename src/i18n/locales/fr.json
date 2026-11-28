@@ -43,6 +43,8 @@
     "loadYouTube": "YouTube",
     "importTitles": "Importer texte",
     "shortcuts": "Raccourcis",
+    "help": "Aide",
+    "openHelpNewTab": "Ouvrir dans un nouvel onglet",
     "importExportText": "Exporter texte",
     "openVideo": "Ouvrir vidéo",
     "languageSwitcherAriaLabel": "Choisir la langue d'affichage",
@@ -105,6 +107,9 @@
     "sampleDesc": "Pas de vidéo sous la main ? Générez directement dans le navigateur une vidéo de test de 15 secondes (5 scènes avec son) pour découvrir l'outil.",
     "sampleGenerating": "Génération de l'exemple {{percent}} %",
     "sampleTryButton": "Essayer la vidéo d'exemple",
+    "guideBannerTitle": "Guide visuel d’utilisation (10 scénarios)",
+    "guideBannerDesc": "Parcourez en schémas le marquage, le zoom de plage, le mode tableur et la retouche YouTube.",
+    "guideOpenButton": "Ouvrir le guide visuel (10)",
     "previousLoad": "Dernier chargement : {{fileName}}"
   },
   "metadataBar": {
@@ -251,6 +256,8 @@
     "layoutTitleSpaceTime": "Titre 00:00",
     "layoutTitleDashTime": "Titre - 00:00",
     "layoutNonYouTubeChapterNote": "Les formats avec le titre en premier ne créent pas de chapitres sur la barre YouTube (les repères restent cliquables).",
+    "layoutTitleOnly": "Titres seuls (pour traduire / remplacer)",
+    "layoutTitleOnlyNote": "Exporte uniquement les titres sans horodatage. Après traduction, collez-les via « Saisie texte » avec « Remplacer les titres existants » pour conserver tous les temps.",
     "ytCheckReady": "Conforme aux règles de chapitres YouTube",
     "ytCheckNeedsZero": "Doit commencer à 0:00",
     "ytCheckNeedsThree": "3 chapitres minimum requis",

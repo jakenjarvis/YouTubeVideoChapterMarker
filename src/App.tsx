@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BookOpen,
   FileText,
   FolderOpen,
   Keyboard,
@@ -79,6 +80,10 @@ import {
 import { YouTubeUrlModal } from './components/YouTubeUrlModal';
 import { LanguageSelector } from './components/LanguageSelector';
 import { getActiveLocale, translate, translatePlural, useI18n } from './i18n';
+
+const WorkflowHelpModal = React.lazy(() =>
+  import('./components/WorkflowHelpModal').then((m) => ({ default: m.WorkflowHelpModal }))
+);
 
 function translateYouTubeApiError(code?: YouTubeApiErrorCode, fallback?: string): string {
   switch (code) {
@@ -261,6 +266,7 @@ export default function App() {
   const [isTextImportOpen, setIsTextImportOpen] = useState(false);
   const [isTextExportOpen, setIsTextExportOpen] = useState(false);
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
+  const [isWorkflowHelpOpen, setIsWorkflowHelpOpen] = useState(false);
 
   const hiddenFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1592,11 +1598,18 @@ export default function App() {
     // Never intercept keys while an IME (Japanese, Chinese, Korean, Vietnamese, etc.) is composing
     if (e.isComposing || e.keyCode === 229) return;
 
-    if (isTextImportOpen || isTextExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
+    if (
+      isTextImportOpen ||
+      isTextExportOpen ||
+      isShortcutHelpOpen ||
+      isWorkflowHelpOpen ||
+      isYouTubeModalOpen
+    ) {
       if (e.key === 'Escape') {
         setIsTextImportOpen(false);
         setIsTextExportOpen(false);
         setIsShortcutHelpOpen(false);
+        setIsWorkflowHelpOpen(false);
         setIsYouTubeModalOpen(false);
       }
       return;
@@ -1782,6 +1795,15 @@ export default function App() {
               >
                 <Keyboard className="w-3.5 h-3.5" />
                 {t('header.shortcuts')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsWorkflowHelpOpen(true)}
+                title={t('loading.guideOpenButton')}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[#CBD5E1] hover:text-[#F8FAFC] bg-[#161A22] hover:bg-[#1E2430] border border-[#2C3444] hover:border-[#424E63] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                {t('header.help')}
               </button>
             </>
           )}
@@ -2166,6 +2188,16 @@ export default function App() {
         isOpen={isShortcutHelpOpen}
         onClose={() => setIsShortcutHelpOpen(false)}
       />
+
+      {/* Visual Workflow Help Guide Popup (never navigates away from loaded video) */}
+      {isWorkflowHelpOpen && (
+        <React.Suspense fallback={null}>
+          <WorkflowHelpModal
+            isOpen={isWorkflowHelpOpen}
+            onClose={() => setIsWorkflowHelpOpen(false)}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }

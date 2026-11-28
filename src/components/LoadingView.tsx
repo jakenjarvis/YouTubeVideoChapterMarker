@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Download, ChevronDown } from 'lucide-react';
+import { Film, Upload, Sparkles, AlertCircle, Loader2, ArrowRight, Youtube, Download, ChevronDown, BookOpen } from 'lucide-react';
 import type { AnalysisProgress, AppMode, VideoMetadata } from '../types/video';
 import { formatFileSize, formatTimecodeHMS } from '../utils/timecode';
 import { extractYouTubeVideoId } from '../utils/youtube';
@@ -30,7 +30,8 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
   progress,
   onSkipToEdit,
 }) => {
-  const { t, tp, formatNumber } = useI18n();
+  const { locale, t, tp, formatNumber } = useI18n();
+  const helpPageHref = `/${locale}/help/`;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [youtubeUrlInput, setYoutubeUrlInput] = useState('');
@@ -170,15 +171,25 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
     <div className="flex-1 flex items-center justify-center p-6 md:p-12">
       <div className="w-full max-w-4xl">
         {/* Clean Editorial Studio Intro */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight text-balance">
-            {t('loading.introHeading')}
-          </h1>
-          <p className="mt-2.5 text-sm sm:text-base text-[#94A0B2] max-w-2xl leading-relaxed">
-            {t('loading.introDescPrefix')}
-            <span className="font-mono-tabular text-[#E2E8F0]">{t('loading.introDescFormatExample')}</span>
-            {t('loading.introDescSuffix')}
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[#F3F5F8] tracking-tight text-balance">
+              {t('loading.introHeading')}
+            </h1>
+            <p className="mt-2.5 text-sm sm:text-base text-[#94A0B2] max-w-2xl leading-relaxed">
+              {t('loading.introDescPrefix')}
+              <span className="font-mono-tabular text-[#E2E8F0]">{t('loading.introDescFormatExample')}</span>
+              {t('loading.introDescSuffix')}
+            </p>
+          </div>
+          <a
+            href={helpPageHref}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-sky-300 bg-[#141A22] hover:bg-[#19222D] border border-sky-500/35 hover:border-sky-400/60 rounded-md transition-colors whitespace-nowrap shrink-0 self-start sm:self-end"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>{t('loading.guideOpenButton')}</span>
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180 shrink-0" />
+          </a>
         </div>
 
         {/* Step 1 File Dropzone */}
@@ -331,8 +342,28 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
           </div>
         </div>
 
+        {/* Visual Workflow Guide Static Page Banner */}
+        <a
+          href={helpPageHref}
+          className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 rounded-lg bg-[#14171C] hover:bg-[#171C24] border border-[#222730] hover:border-sky-500/45 transition-colors group"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#F3F5F8]">
+              <BookOpen className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>{t('loading.guideBannerTitle')}</span>
+            </div>
+            <p className="mt-1 text-xs text-[#94A0B2] leading-relaxed">
+              {t('loading.guideBannerDesc')}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-sky-300 bg-[#18212C] border border-sky-500/35 rounded-md whitespace-nowrap shrink-0 self-start sm:self-center group-hover:bg-[#1E2A38] transition-colors">
+            {t('loading.guideOpenButton')}
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+          </span>
+        </a>
+
         {/* Optional quick synthetic sample video button */}
-        <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 rounded-lg bg-[#14171C] border border-[#222730]">
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 rounded-lg bg-[#14171C] border border-[#222730]">
           <div className="text-xs text-[#94A0B2]">
             {t('loading.sampleDesc')}
           </div>

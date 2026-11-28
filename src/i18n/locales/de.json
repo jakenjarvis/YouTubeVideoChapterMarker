@@ -43,6 +43,8 @@
     "loadYouTube": "YouTube",
     "importTitles": "Text importieren",
     "shortcuts": "Shortcuts",
+    "help": "Hilfe",
+    "openHelpNewTab": "In neuem Tab öffnen",
     "importExportText": "Text exportieren",
     "openVideo": "Video öffnen",
     "languageSwitcherAriaLabel": "Anzeigesprache wählen",
@@ -105,6 +107,9 @@
     "sampleDesc": "Keine Videodatei zur Hand? Erzeuge direkt im Browser ein 15-sekündiges Beispielvideo mit 5 Szenen und Signalton zum Ausprobieren.",
     "sampleGenerating": "Beispielvideo wird erstellt {{percent}}%",
     "sampleTryButton": "Mit Beispielvideo testen",
+    "guideBannerTitle": "Visueller Workflow-Leitfaden (10 Szenarien)",
+    "guideBannerDesc": "Alle Abläufe als Diagramm: Frame-Marking, Bereichs-Zoom, Tabellen-Editor und YouTube-Korrektur.",
+    "guideOpenButton": "Bildleitfaden öffnen (10)",
     "previousLoad": "Zuletzt geladen: {{fileName}}"
   },
   "metadataBar": {
@@ -251,6 +256,8 @@
     "layoutTitleSpaceTime": "Titel 00:00",
     "layoutTitleDashTime": "Titel - 00:00",
     "layoutNonYouTubeChapterNote": "Formate mit vorangestelltem Titel erzeugen keine YouTube-Fortschrittsbalken-Kapitel (Zeitstempel bleiben anklickbare Sprunglinks).",
+    "layoutTitleOnly": "Nur Titel (zum Übersetzen / Ersetzen)",
+    "layoutTitleOnlyNote": "Gibt nur die Titel ohne Zeitstempel aus. Nach dem Übersetzen über „Texteingabe“ mit „Vorhandene Titel ersetzen“ einfügen, um alle Zeiten zu behalten.",
     "ytCheckReady": "Erfüllt die YouTube-Kapitelregeln",
     "ytCheckNeedsZero": "Muss bei 0:00 beginnen",
     "ytCheckNeedsThree": "Mindestens 3 Kapitel nötig",
@@ -266,7 +273,7 @@
     "downloadTxt": ".txt speichern",
     "copied": "Kopiert",
     "copyToClipboard": "In Zwischenablage kopieren",
-    "importDesc": "Jede Zeile wird automatisch erkannt. Mische Kapitel mit Zeitstempel (00:00 Titel, 00:00 - Titel, Titel 00:00), zweispaltige Tabellen aus Excel/Tabellenkalkulationen (Tabulator, CSV oder mehrere Leerzeichen), reine Zeitstempel und reine Titel nach Belieben.",
+    "importDesc": "Jede Zeile wird automatisch erkannt. Mische Kapitel mit Zeitstempel (00:00 Titel, 00:00 - Titel, Titel 00:00), zweispaltige Tabellendaten (Tabulator, CSV oder mehrere Leerzeichen), reine Zeitstempel und reine Titel nach Belieben.",
     "importPlaceholder": "00:00 Intro\n04:56 Hauptteil\nNur-Titel-Zeile (wird unzugeordnet hinzugefügt)\n00:38:22\n01:12:00 Fazit",
     "detectedSummaryPrefix": "Erkannt:",
     "detectedChaptersCount": {
