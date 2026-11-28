@@ -1,7 +1,7 @@
 {
   "name": "youtube-video-chapter-marker",
   "private": true,
-  "version": "1.7.1",
+  "version": "1.8.0",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/timecode.test.ts tests/youtube.test.ts tests/i18n.test.ts tests/security.test.ts tests/api-youtube.test.ts",
+    "test": "tsx --test tests/timecode.test.ts tests/youtube.test.ts tests/i18n.test.ts tests/security.test.ts tests/api-youtube.test.ts tests/chapter-sequence.test.ts tests/spreadsheet-engine.test.ts",
     "test:build": "tsx --test tests/build-seo.test.ts"
   },
   "dependencies": {

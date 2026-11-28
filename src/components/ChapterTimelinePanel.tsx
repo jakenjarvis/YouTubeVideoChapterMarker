@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -6,189 +6,262 @@ import {
   Plus,
   Trash2,
   Unlink,
-  CornerDownRight,
   Check,
   X,
   Bookmark,
   ArrowDownToLine,
   Wand2,
+  MapPin,
+  Crosshair,
 } from 'lucide-react';
-import type { ChapterTitle, Marker, PlaybackMode } from '../types/video';
+import type { ChapterEntry, PlaybackMode } from '../types/video';
 import { formatTimecodeHMS } from '../utils/timecode';
+import { computeSearchRangeForRow } from '../utils/chapterSequence';
 import { computePlayheadSlot, TimelinePlayheadGap } from './TimelinePlayheadSlot';
 import { useI18n } from '../i18n';
 
 interface ChapterTimelinePanelProps {
-  markers: Marker[];
-  titles: ChapterTitle[];
+  entries: ChapterEntry[];
   currentFrameIndex: number;
   currentTimeSec: number;
   durationSec: number;
   playbackMode: PlaybackMode;
   lastSelectedMarkerId: string | null;
-  onSelectMarker: (markerId: string, frameIndex: number) => void;
+  focusedUntimedEntryId: string | null;
+  onSelectMarker: (entryId: string, frameIndex: number) => void;
+  onFocusUntimedEntry: (entryId: string | null) => void;
+  onSeekToTime: (timeSec: number) => void;
   onAddMarkerAtCurrent: () => void;
-  onDeleteMarker: (markerId: string) => void;
-  onAddTitleForMarker: (markerId: string, text: string) => void;
-  onAddUnassignedTitle: (text: string) => void;
-  onUpdateTitleText: (titleId: string, text: string) => void;
-  onDeleteTitle: (titleId: string) => void;
-  onUnassignTitle: (titleId: string) => void;
-  onMoveOrSwapTitleToMarker: (titleId: string, targetMarkerId: string) => void;
-  onStepTitleOnTimeline: (titleId: string, direction: -1 | 1) => void;
-  onShiftTitlesDownFromMarker: (startMarkerIndex: number) => void;
-  onReorderUnassignedTitle: (titleId: string, direction: -1 | 1) => void;
+  onAssignCurrentTimeToEntry: (entryId: string) => void;
+  onDeleteMarker: (entryId: string) => void;
+  onAddTitleForMarker: (entryId: string, text: string) => void;
+  onInsertUntimedTitleAt: (text: string, insertIndex?: number) => void;
+  onUpdateTitleText: (entryId: string, text: string) => void;
+  onDeleteTitle: (entryId: string) => void;
+  onUnassignTitle: (entryId: string) => void;
+  onMoveOrSwapTitleBetweenEntries: (sourceId: string, targetId: string) => void;
+  onStepEntryTitle: (entryId: string, direction: -1 | 1) => void;
+  onShiftTitlesDownFromEntry: (startEntryId: string) => void;
   onAutoAssignUnassigned: () => void;
 }
 
 export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
-  markers,
-  titles,
+  entries,
   currentFrameIndex,
   currentTimeSec,
   durationSec,
   playbackMode,
   lastSelectedMarkerId,
+  focusedUntimedEntryId,
   onSelectMarker,
+  onFocusUntimedEntry,
+  onSeekToTime,
   onAddMarkerAtCurrent,
+  onAssignCurrentTimeToEntry,
   onDeleteMarker,
   onAddTitleForMarker,
-  onAddUnassignedTitle,
+  onInsertUntimedTitleAt,
   onUpdateTitleText,
   onDeleteTitle,
   onUnassignTitle,
-  onMoveOrSwapTitleToMarker,
-  onStepTitleOnTimeline,
-  onShiftTitlesDownFromMarker,
-  onReorderUnassignedTitle,
+  onMoveOrSwapTitleBetweenEntries,
+  onStepEntryTitle,
+  onShiftTitlesDownFromEntry,
   onAutoAssignUnassigned,
 }) => {
   const { t } = useI18n();
-  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState('');
   const [addingMarkerId, setAddingMarkerId] = useState<string | null>(null);
   const [addingMarkerDraft, setAddingMarkerDraft] = useState('');
+  const [insertingAtIndex, setInsertingAtIndex] = useState<number | null>(null);
+  const [insertingDraft, setInsertingDraft] = useState('');
   const [newUnassignedDraft, setNewUnassignedDraft] = useState('');
 
-  const [draggedTitleId, setDraggedTitleId] = useState<string | null>(null);
-  const [dropTargetMarkerId, setDropTargetMarkerId] = useState<string | null>(null);
-  const [dropTargetPool, setDropTargetPool] = useState(false);
+  const [draggedEntryId, setDraggedEntryId] = useState<string | null>(null);
+  const [dropTargetEntryId, setDropTargetEntryId] = useState<string | null>(null);
 
-  const sortedMarkers = [...markers].sort(
-    (a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex
+  // Derived timed list for playhead slot positioning & counts
+  const timedRows = useMemo(
+    () =>
+      entries
+        .map((entry, listIdx) => ({ entry, listIdx }))
+        .filter((item) => item.entry.timeSec !== null && item.entry.frameIndex !== null),
+    [entries]
   );
 
-  const titleByMarkerId = new Map<string, ChapterTitle>();
-  const unassignedTitles: ChapterTitle[] = [];
-  for (const t of titles) {
-    if (t.assignedMarkerId) {
-      titleByMarkerId.set(t.assignedMarkerId, t);
-    } else {
-      unassignedTitles.push(t);
-    }
-  }
-  unassignedTitles.sort((a, b) => a.unassignedOrder - b.unassignedOrder);
+  const timedPosById = useMemo(() => {
+    const map = new Map<string, number>();
+    timedRows.forEach((item, pos) => map.set(item.entry.id, pos));
+    return map;
+  }, [timedRows]);
 
-  const assignedCount = sortedMarkers.filter((m) => titleByMarkerId.has(m.id)).length;
-  const emptyMarkerCount = sortedMarkers.length - assignedCount;
+  const searchRangeInputs = useMemo(
+    () => entries.map((e) => ({ key: e.id, timeSec: e.timeSec, title: e.title })),
+    [entries]
+  );
+
+  const markerCount = timedRows.length;
+  const assignedCount = timedRows.filter((item) => item.entry.title.trim().length > 0).length;
+  const emptyMarkerCount = markerCount - assignedCount;
+  const untimedCount = entries.filter(
+    (e) => e.timeSec === null && e.title.trim().length > 0
+  ).length;
 
   const playheadSlot = computePlayheadSlot(
-    sortedMarkers,
+    timedRows.map((item) => ({
+      timeSec: item.entry.timeSec!,
+      frameIndex: item.entry.frameIndex!,
+    })),
     currentFrameIndex,
     currentTimeSec,
     durationSec,
     1
   );
 
-  const startEditing = (title: ChapterTitle) => {
-    setEditingTitleId(title.id);
-    setEditingDraft(title.text);
+  const startEditing = (entry: ChapterEntry) => {
+    setEditingEntryId(entry.id);
+    setEditingDraft(entry.title);
   };
 
   const commitEditing = () => {
-    if (editingTitleId) {
+    if (editingEntryId) {
       const trimmed = editingDraft.trim();
       if (trimmed.length > 0) {
-        onUpdateTitleText(editingTitleId, trimmed);
+        onUpdateTitleText(editingEntryId, trimmed);
       }
     }
-    setEditingTitleId(null);
+    setEditingEntryId(null);
     setEditingDraft('');
   };
 
-  const commitMarkerNewTitle = (markerId: string) => {
+  const commitMarkerNewTitle = (entryId: string) => {
     const trimmed = addingMarkerDraft.trim();
     if (trimmed.length > 0) {
-      onAddTitleForMarker(markerId, trimmed);
+      onAddTitleForMarker(entryId, trimmed);
     }
     setAddingMarkerId(null);
     setAddingMarkerDraft('');
   };
 
-  const commitUnassignedNewTitle = (e: React.FormEvent) => {
+  const commitInlineInsert = (insertIndex: number) => {
+    const trimmed = insertingDraft.trim();
+    if (trimmed.length > 0) {
+      onInsertUntimedTitleAt(trimmed, insertIndex);
+    }
+    setInsertingAtIndex(null);
+    setInsertingDraft('');
+  };
+
+  const commitBottomNewTitle = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newUnassignedDraft.trim();
     if (!trimmed) return;
-    onAddUnassignedTitle(trimmed);
+    onInsertUntimedTitleAt(trimmed);
     setNewUnassignedDraft('');
   };
 
-  const handleDragStart = (e: React.DragEvent, titleId: string) => {
-    setDraggedTitleId(titleId);
-    e.dataTransfer.setData('text/plain', titleId);
+  const handleDragStart = (e: React.DragEvent, entryId: string) => {
+    setDraggedEntryId(entryId);
+    e.dataTransfer.setData('text/plain', entryId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragEnd = () => {
-    setDraggedTitleId(null);
-    setDropTargetMarkerId(null);
-    setDropTargetPool(false);
+    setDraggedEntryId(null);
+    setDropTargetEntryId(null);
   };
 
-  const handleDropOnMarker = (e: React.DragEvent, targetMarkerId: string) => {
+  const handleDropOnEntry = (e: React.DragEvent, targetEntryId: string) => {
     e.preventDefault();
-    const titleId = draggedTitleId || e.dataTransfer.getData('text/plain');
-    setDropTargetMarkerId(null);
-    setDraggedTitleId(null);
-    if (titleId) {
-      onMoveOrSwapTitleToMarker(titleId, targetMarkerId);
+    const sourceId = draggedEntryId || e.dataTransfer.getData('text/plain');
+    setDropTargetEntryId(null);
+    setDraggedEntryId(null);
+    if (sourceId && sourceId !== targetEntryId) {
+      onMoveOrSwapTitleBetweenEntries(sourceId, targetEntryId);
     }
   };
 
-  const handleDropOnPool = (e: React.DragEvent) => {
-    e.preventDefault();
-    const titleId = draggedTitleId || e.dataTransfer.getData('text/plain');
-    setDropTargetPool(false);
-    setDraggedTitleId(null);
-    if (titleId) {
-      onUnassignTitle(titleId);
-    }
-  };
+  const renderInlineInsertForm = (insertIndex: number) => (
+    <div className="my-1 px-2.5 py-2 rounded-md border border-dashed border-sky-400/60 bg-[#111722] flex items-center gap-1.5">
+      <input
+        type="text"
+        dir="auto"
+        value={insertingDraft}
+        autoFocus
+        placeholder={t('chapters.insertTitleInlinePlaceholder')}
+        onChange={(e) => setInsertingDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commitInlineInsert(insertIndex);
+          } else if (e.key === 'Escape') {
+            setInsertingAtIndex(null);
+            setInsertingDraft('');
+          }
+        }}
+        className="flex-1 min-w-0 px-2 py-1 text-xs bg-[#0D0F12] border border-sky-400/60 rounded text-[#F8FAFC] placeholder:text-[#5E687A] focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => commitInlineInsert(insertIndex)}
+        title={t('common.add')}
+        className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
+      >
+        <Check className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setInsertingAtIndex(null);
+          setInsertingDraft('');
+        }}
+        title={t('common.cancel')}
+        className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Sub-header summary */}
-      <div className="px-4 py-3 border-b border-[#222731] flex items-center justify-between gap-2 shrink-0">
+      {/* Sub-header summary & quick actions */}
+      <div className="px-4 py-3 border-b border-[#222731] flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="text-xs text-[#94A0B2] flex items-center gap-2 font-mono-tabular">
-          <span>{t('chapters.summaryMarkers', { count: sortedMarkers.length })}</span>
+          <span>{t('chapters.summaryMarkers', { count: markerCount })}</span>
           <span aria-hidden="true" className="text-[#454E5E]">·</span>
           <span>{t('chapters.summaryAssigned', { count: assignedCount })}</span>
           <span aria-hidden="true" className="text-[#454E5E]">·</span>
-          <span>{t('chapters.summaryUnassigned', { count: unassignedTitles.length })}</span>
+          <span>{t('chapters.summaryUnassigned', { count: untimedCount })}</span>
         </div>
-        <button
-          type="button"
-          onClick={onAddMarkerAtCurrent}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t('chapters.markCurrentButton')}
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {untimedCount > 0 && emptyMarkerCount > 0 && (
+            <button
+              type="button"
+              onClick={onAutoAssignUnassigned}
+              title={t('chapters.autoAssignTooltip')}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-sky-300 hover:text-sky-200 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Wand2 className="w-3 h-3" />
+              {t('chapters.autoAssignButton')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onAddMarkerAtCurrent}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('chapters.markCurrentButton')}
+          </button>
+        </div>
       </div>
 
-      {/* Scrollable Vertical Marker Timeline & Matching Lane */}
+      {/* Unified Ordered Vertical Chapter Timeline (Timed + Untimed Rows Preserving Narrative Order) */}
       <div className="flex-1 overflow-y-auto min-h-0 px-3 py-1.5">
-        {sortedMarkers.length === 0 ? (
+        {entries.length === 0 ? (
           <div className="my-1.5 py-10 px-4 text-center border border-dashed border-[#272D38] rounded-lg bg-[#111419]">
             <Bookmark className="w-6 h-6 text-[#647082] mx-auto mb-2.5" />
             <p className="text-sm font-medium text-[#E2E8F0]">{t('chapters.emptyTitle')}</p>
@@ -208,295 +281,451 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
           </div>
         ) : (
           <>
-            <TimelinePlayheadGap
-              active={playheadSlot.kind === 'before-first'}
-              progress={playheadSlot.kind === 'before-first' ? playheadSlot.progress : 0}
-              currentTimeSec={currentTimeSec}
-              playbackMode={playbackMode}
-              accent="amber"
-            />
-            {sortedMarkers.map((marker, idx) => {
-              const assignedTitle = titleByMarkerId.get(marker.id) ?? null;
+            {timedRows.length > 0 && (
+              <TimelinePlayheadGap
+                active={playheadSlot.kind === 'before-first'}
+                progress={playheadSlot.kind === 'before-first' ? playheadSlot.progress : 0}
+                currentTimeSec={currentTimeSec}
+                playbackMode={playbackMode}
+                accent="amber"
+              />
+            )}
+
+            {entries.map((entry, entryIdx) => {
+              const isTimed = entry.timeSec !== null && entry.frameIndex !== null;
+              const timedIdx = isTimed ? (timedPosById.get(entry.id) ?? -1) : -1;
               const isCurrent =
-                playheadSlot.kind === 'on-item' && playheadSlot.index === idx;
-              const isLastSelected = lastSelectedMarkerId === marker.id;
-              const isDropHover = dropTargetMarkerId === marker.id;
+                isTimed && playheadSlot.kind === 'on-item' && playheadSlot.index === timedIdx;
+              const isLastSelected = isTimed && lastSelectedMarkerId === entry.id;
+              const isFocusedUntimed = !isTimed && focusedUntimedEntryId === entry.id;
+              const isDropHover = dropTargetEntryId === entry.id;
+
               const isGapActiveAfter =
-                (playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx) ||
-                (playheadSlot.kind === 'after-last' && idx === sortedMarkers.length - 1);
+                isTimed &&
+                ((playheadSlot.kind === 'between' && playheadSlot.afterIndex === timedIdx) ||
+                  (playheadSlot.kind === 'after-last' && timedIdx === timedRows.length - 1));
               const gapProgressAfter =
-                playheadSlot.kind === 'between' && playheadSlot.afterIndex === idx
+                isTimed && playheadSlot.kind === 'between' && playheadSlot.afterIndex === timedIdx
                   ? playheadSlot.progress
-                  : playheadSlot.kind === 'after-last' && idx === sortedMarkers.length - 1
+                  : isTimed &&
+                      playheadSlot.kind === 'after-last' &&
+                      timedIdx === timedRows.length - 1
                     ? playheadSlot.progress
                     : 0;
 
+              const searchRange = !isTimed
+                ? computeSearchRangeForRow(searchRangeInputs, entryIdx, durationSec)
+                : null;
+              const hasNarrowedRange = Boolean(searchRange && searchRange.isNarrowed);
+
               return (
-                <React.Fragment key={marker.id}>
+                <React.Fragment key={entry.id}>
                   <div
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'move';
-                      if (dropTargetMarkerId !== marker.id) {
-                        setDropTargetMarkerId(marker.id);
+                      if (dropTargetEntryId !== entry.id) {
+                        setDropTargetEntryId(entry.id);
                       }
                     }}
                     onDragLeave={() => {
-                      if (dropTargetMarkerId === marker.id) {
-                        setDropTargetMarkerId(null);
+                      if (dropTargetEntryId === entry.id) {
+                        setDropTargetEntryId(null);
                       }
                     }}
-                    onDrop={(e) => handleDropOnMarker(e, marker.id)}
-                    className={`group flex items-stretch gap-2 rounded-md border transition-colors ${
+                    onDrop={(e) => handleDropOnEntry(e, entry.id)}
+                    className={`group flex items-stretch gap-2 rounded-md border transition-colors mb-1.5 ${
                       isDropHover
                         ? 'border-amber-400 bg-amber-500/15'
-                        : isCurrent
-                          ? 'border-amber-400/80 bg-[#1B202A]'
-                          : isLastSelected
-                            ? 'border-dashed border-amber-400/80 bg-amber-500/[0.08] hover:border-amber-400'
-                            : 'border-[#232833] bg-[#14171D] hover:border-[#303745]'
+                        : isTimed
+                          ? isCurrent
+                            ? 'border-amber-400/80 bg-[#1B202A]'
+                            : isLastSelected
+                              ? 'border-dashed border-amber-400/80 bg-amber-500/[0.08] hover:border-amber-400'
+                              : 'border-[#232833] bg-[#14171D] hover:border-[#303745]'
+                          : isFocusedUntimed
+                            ? 'border-sky-400/80 bg-sky-500/[0.09]'
+                            : 'border-dashed border-[#2F394A] bg-[#12161E] hover:border-sky-400/50'
                     }`}
                   >
-                    {/* Left Column: Chronological Marker Timestamp & Seek Trigger */}
-                    <div
-                      className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-e rounded-s-md transition-colors ${
-                        isCurrent
-                          ? 'border-amber-400/35 bg-amber-500/[0.12]'
-                          : isLastSelected
-                            ? 'border-amber-400/25 bg-amber-500/[0.09]'
-                            : 'border-[#222731] bg-[#111419]/70'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onSelectMarker(marker.id, marker.frameIndex)}
-                        title={t('chapters.seekMarkerTitle', {
-                          timecode: formatTimecodeHMS(marker.timeSec),
-                          frame: marker.frameIndex,
-                        })}
-                        className="text-start group/seek cursor-pointer"
+                    {/* Left Column: Timed Marker OR Untimed Search Range Trigger */}
+                    {isTimed ? (
+                      <div
+                        className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-e rounded-s-md transition-colors ${
+                          isCurrent
+                            ? 'border-amber-400/35 bg-amber-500/[0.12]'
+                            : isLastSelected
+                              ? 'border-amber-400/25 bg-amber-500/[0.09]'
+                              : 'border-[#222731] bg-[#111419]/70'
+                        }`}
                       >
-                        <div
-                          dir="ltr"
-                          className={`font-mono-tabular text-sm font-bold leading-tight transition-colors w-fit ${
-                            isCurrent
-                              ? 'text-amber-400'
-                              : isLastSelected
-                                ? 'text-amber-200 group-hover/seek:text-amber-100'
-                                : 'text-[#F3F5F8] group-hover/seek:text-amber-300'
-                          }`}
+                        <button
+                          type="button"
+                          onClick={() => onSelectMarker(entry.id, entry.frameIndex!)}
+                          title={t('chapters.seekMarkerTitle', {
+                            timecode: formatTimecodeHMS(entry.timeSec!),
+                            frame: entry.frameIndex!,
+                          })}
+                          className="text-start group/seek cursor-pointer"
                         >
-                          {formatTimecodeHMS(marker.timeSec)}
-                        </div>
-                        <div dir="ltr" className="font-mono-tabular text-[11px] text-[#647082] mt-0.5 w-fit">
-                          #{marker.frameIndex}
-                        </div>
-                      </button>
-
-                      <div className="mt-1.5 flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span
+                          <div
                             dir="ltr"
-                            className={`font-mono-tabular text-[10px] ${
-                              isCurrent || isLastSelected ? 'text-amber-400/90 font-semibold' : 'text-[#566071]'
+                            className={`font-mono-tabular text-sm font-bold leading-tight transition-colors w-fit ${
+                              isCurrent
+                                ? 'text-amber-400'
+                                : isLastSelected
+                                  ? 'text-amber-200 group-hover/seek:text-amber-100'
+                                  : 'text-[#F3F5F8] group-hover/seek:text-amber-300'
                             }`}
                           >
-                            {t('chapters.markerIndexBadge', { number: String(idx + 1).padStart(2, '0') })}
-                          </span>
-                          {isLastSelected && !isCurrent && (
-                            <span className="text-[10px] font-medium text-amber-300/90 whitespace-nowrap">
-                              {t('chapters.selectedPosition')}
-                            </span>
-                          )}
-                          {isCurrent && (
-                            <span className="text-[10px] font-semibold text-amber-300 whitespace-nowrap">
-                              {t('chapters.currentPosition')}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteMarker(marker.id)}
-                          title={t('chapters.deleteMarkerTitle')}
-                          className="p-0.5 text-[#647082] hover:text-red-400 transition-colors cursor-pointer shrink-0"
-                        >
-                          <Trash2 className="w-3 h-3" />
+                            {formatTimecodeHMS(entry.timeSec!)}
+                          </div>
+                          <div dir="ltr" className="font-mono-tabular text-[11px] text-[#647082] mt-0.5 w-fit">
+                            #{entry.frameIndex}
+                          </div>
                         </button>
-                      </div>
-                    </div>
 
-                {/* Right Column: Assigned Chapter Title OR Empty Droppable Slot */}
-                <div className="flex-1 min-w-0 p-2 flex items-center">
-                  {assignedTitle ? (
-                    editingTitleId === assignedTitle.id ? (
-                      <div className="w-full flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          dir="auto"
-                          value={editingDraft}
-                          autoFocus
-                          onChange={(e) => setEditingDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitEditing();
-                            if (e.key === 'Escape') {
-                              setEditingTitleId(null);
-                              setEditingDraft('');
-                            }
-                          }}
-                          className="flex-1 min-w-0 px-2 py-1 text-sm bg-[#0D0F12] border border-amber-400/70 rounded text-[#F8FAFC] focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={commitEditing}
-                          title={t('common.save')}
-                          className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingTitleId(null);
-                            setEditingDraft('');
-                          }}
-                          title={t('common.cancel')}
-                          className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        <div className="mt-1.5 flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              dir="ltr"
+                              className={`font-mono-tabular text-[10px] ${
+                                isCurrent || isLastSelected
+                                  ? 'text-amber-400/90 font-semibold'
+                                  : 'text-[#566071]'
+                              }`}
+                            >
+                              {t('chapters.markerIndexBadge', {
+                                number: String(timedIdx + 1).padStart(2, '0'),
+                              })}
+                            </span>
+                            {isLastSelected && !isCurrent && (
+                              <span className="text-[10px] font-medium text-amber-300/90 whitespace-nowrap">
+                                {t('chapters.selectedPosition')}
+                              </span>
+                            )}
+                            {isCurrent && (
+                              <span className="text-[10px] font-semibold text-amber-300 whitespace-nowrap">
+                                {t('chapters.currentPosition')}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMarker(entry.id)}
+                            title={t('chapters.deleteMarkerTitle')}
+                            className="p-0.5 text-[#647082] hover:text-red-400 transition-colors cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, assignedTitle.id)}
-                        onDragEnd={handleDragEnd}
-                        className={`w-full flex items-center gap-2 cursor-grab active:cursor-grabbing ${
-                          draggedTitleId === assignedTitle.id ? 'opacity-40' : ''
+                        onClick={() =>
+                          onFocusUntimedEntry(isFocusedUntimed ? null : entry.id)
+                        }
+                        className={`w-[126px] shrink-0 flex flex-col justify-between p-2 border-e rounded-s-md transition-colors cursor-pointer ${
+                          isFocusedUntimed
+                            ? 'border-sky-400/40 bg-sky-500/[0.14]'
+                            : 'border-[#252D3A] bg-[#0F131A]/80 hover:bg-sky-500/[0.08]'
                         }`}
                       >
-                        <GripVertical className="w-3.5 h-3.5 text-[#586274] shrink-0" />
-                        <button
-                          type="button"
-                          dir="auto"
-                          onClick={() => startEditing(assignedTitle)}
-                          title={t('chapters.editTitleTooltip')}
-                          className="flex-1 min-w-0 text-start text-sm font-medium text-[#F3F5F8] hover:text-amber-200 truncate cursor-text"
-                        >
-                          {assignedTitle.text}
-                        </button>
+                        <div className="flex items-center gap-1 text-[11px] font-medium text-sky-300">
+                          <Crosshair className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{t('chapters.untimedBadge')}</span>
+                        </div>
+                        {hasNarrowedRange && searchRange ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFocusUntimedEntry(entry.id);
+                              onSeekToTime((searchRange.startSec + searchRange.endSec) / 2);
+                            }}
+                            title={t('chapters.searchRangeJumpMidTitle')}
+                            className="mt-1 text-start font-mono-tabular text-[10px] text-sky-200/85 hover:text-sky-100 leading-tight cursor-pointer"
+                            dir="ltr"
+                          >
+                            {formatTimecodeHMS(searchRange.startSec)}–
+                            {formatTimecodeHMS(searchRange.endSec)}
+                          </button>
+                        ) : (
+                          <span className="mt-1 text-[10px] text-[#647082]">
+                            {t('chapters.noNarrowedRangeHint')}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-                        {/* Row-level title movement / shift / detach / delete controls */}
-                        <div className="flex items-center gap-0.5 shrink-0 opacity-85 group-hover:opacity-100">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => onStepTitleOnTimeline(assignedTitle.id, -1)}
-                            title={t('chapters.moveTitleUpTooltip')}
-                            className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx === sortedMarkers.length - 1}
-                            onClick={() => onStepTitleOnTimeline(assignedTitle.id, 1)}
-                            title={t('chapters.moveTitleDownTooltip')}
-                            className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </button>
-                          {idx < sortedMarkers.length - 1 && (
+                    {/* Right Column: Title, Inline Editing, & Action Controls */}
+                    <div className="flex-1 min-w-0 p-2 flex items-center">
+                      {entry.title.trim().length > 0 ? (
+                        editingEntryId === entry.id ? (
+                          <div className="w-full flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              dir="auto"
+                              value={editingDraft}
+                              autoFocus
+                              onChange={(e) => setEditingDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                                if (e.key === 'Enter') commitEditing();
+                                if (e.key === 'Escape') {
+                                  setEditingEntryId(null);
+                                  setEditingDraft('');
+                                }
+                              }}
+                              className="flex-1 min-w-0 px-2 py-1 text-sm bg-[#0D0F12] border border-amber-400/70 rounded text-[#F8FAFC] focus:outline-none"
+                            />
                             <button
                               type="button"
-                              onClick={() => onShiftTitlesDownFromMarker(idx)}
-                              title={t('chapters.shiftTitlesDownTooltip')}
-                              className="p-1 text-[#94A0B2] hover:text-amber-300 hover:bg-[#242A36] rounded cursor-pointer"
+                              onClick={commitEditing}
+                              title={t('common.save')}
+                              className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
                             >
-                              <ArrowDownToLine className="w-3.5 h-3.5" />
+                              <Check className="w-4 h-4" />
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingEntryId(null);
+                                setEditingDraft('');
+                              }}
+                              title={t('common.cancel')}
+                              className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, entry.id)}
+                            onDragEnd={handleDragEnd}
+                            onClick={() => {
+                              if (!isTimed) {
+                                onFocusUntimedEntry(entry.id);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-1.5 cursor-grab active:cursor-grabbing ${
+                              draggedEntryId === entry.id ? 'opacity-40' : ''
+                            }`}
+                          >
+                            <GripVertical className="w-3.5 h-3.5 text-[#586274] shrink-0" />
+                            <button
+                              type="button"
+                              dir="auto"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditing(entry);
+                              }}
+                              title={t('chapters.editTitleTooltip')}
+                              className={`flex-1 min-w-0 text-start text-sm font-medium truncate cursor-text ${
+                                isTimed
+                                  ? 'text-[#F3F5F8] hover:text-amber-200'
+                                  : 'text-sky-100 hover:text-sky-200'
+                              }`}
+                            >
+                              {entry.title}
+                            </button>
+
+                            {/* Row Controls */}
+                            <div className="flex items-center gap-0.5 shrink-0 opacity-90 group-hover:opacity-100">
+                              {!isTimed && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAssignCurrentTimeToEntry(entry.id);
+                                  }}
+                                  title={t('chapters.assignCurrentTimeTooltip')}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-emerald-300 hover:text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/35 rounded transition-colors whitespace-nowrap cursor-pointer me-0.5"
+                                >
+                                  <MapPin className="w-3 h-3" />
+                                  {t('chapters.assignCurrentTimeButton')}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                disabled={isTimed ? timedIdx === 0 : entryIdx === 0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onStepEntryTitle(entry.id, -1);
+                                }}
+                                title={
+                                  isTimed
+                                    ? t('chapters.moveTitleUpTooltip')
+                                    : t('chapters.moveUpTooltip')
+                                }
+                                className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  isTimed
+                                    ? timedIdx === timedRows.length - 1
+                                    : entryIdx === entries.length - 1
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onStepEntryTitle(entry.id, 1);
+                                }}
+                                title={
+                                  isTimed
+                                    ? t('chapters.moveTitleDownTooltip')
+                                    : t('chapters.moveDownTooltip')
+                                }
+                                className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#242A36] rounded disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Existing cascade slide-down button (timed markers) */}
+                              {isTimed && timedIdx < timedRows.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onShiftTitlesDownFromEntry(entry.id);
+                                  }}
+                                  title={t('chapters.shiftTitlesDownTooltip')}
+                                  className="p-1 text-[#94A0B2] hover:text-amber-300 hover:bg-[#242A36] rounded cursor-pointer"
+                                >
+                                  <ArrowDownToLine className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
+                              {/* Inline insert untimed title right below this row (e.g. insert B2) */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInsertingAtIndex(entryIdx + 1);
+                                  setInsertingDraft('');
+                                }}
+                                title={t('chapters.insertTitleBelowTooltip')}
+                                className="p-1 text-[#94A0B2] hover:text-sky-300 hover:bg-[#242A36] rounded cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Unlink timestamp while preserving title's position */}
+                              {isTimed && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onUnassignTitle(entry.id);
+                                  }}
+                                  title={t('chapters.unassignTitleTooltip')}
+                                  className="p-1 text-[#94A0B2] hover:text-sky-300 hover:bg-[#242A36] rounded cursor-pointer"
+                                >
+                                  <Unlink className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteTitle(entry.id);
+                                }}
+                                title={t('chapters.deleteTitleTooltip')}
+                                className="p-1 text-[#94A0B2] hover:text-red-400 hover:bg-[#242A36] rounded cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      ) : addingMarkerId === entry.id ? (
+                        <div className="w-full flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            dir="auto"
+                            value={addingMarkerDraft}
+                            placeholder={t('chapters.enterTitlePlaceholder')}
+                            autoFocus
+                            onChange={(e) => setAddingMarkerDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                              if (e.key === 'Enter') commitMarkerNewTitle(entry.id);
+                              if (e.key === 'Escape') {
+                                setAddingMarkerId(null);
+                                setAddingMarkerDraft('');
+                              }
+                            }}
+                            className="flex-1 min-w-0 px-2 py-1 text-sm bg-[#0D0F12] border border-amber-400/70 rounded text-[#F8FAFC] placeholder:text-[#566071] focus:outline-none"
+                          />
                           <button
                             type="button"
-                            onClick={() => onUnassignTitle(assignedTitle.id)}
-                            title={t('chapters.unassignTitleTooltip')}
-                            className="p-1 text-[#94A0B2] hover:text-sky-300 hover:bg-[#242A36] rounded cursor-pointer"
+                            onClick={() => commitMarkerNewTitle(entry.id)}
+                            className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
                           >
-                            <Unlink className="w-3.5 h-3.5" />
+                            <Check className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteTitle(assignedTitle.id)}
-                            title={t('chapters.deleteTitleTooltip')}
-                            className="p-1 text-[#94A0B2] hover:text-red-400 hover:bg-[#242A36] rounded cursor-pointer"
+                            onClick={() => {
+                              setAddingMarkerId(null);
+                              setAddingMarkerDraft('');
+                            }}
+                            className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
-                      </div>
-                    )
-                  ) : addingMarkerId === marker.id ? (
-                    <div className="w-full flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        dir="auto"
-                        value={addingMarkerDraft}
-                        placeholder={t('chapters.enterTitlePlaceholder')}
-                        autoFocus
-                        onChange={(e) => setAddingMarkerDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitMarkerNewTitle(marker.id);
-                          if (e.key === 'Escape') {
-                            setAddingMarkerId(null);
-                            setAddingMarkerDraft('');
-                          }
-                        }}
-                        className="flex-1 min-w-0 px-2 py-1 text-sm bg-[#0D0F12] border border-amber-400/70 rounded text-[#F8FAFC] placeholder:text-[#566071] focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => commitMarkerNewTitle(marker.id)}
-                        className="p-1 text-emerald-400 hover:bg-emerald-500/15 rounded cursor-pointer"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddingMarkerId(null);
-                          setAddingMarkerDraft('');
-                        }}
-                        className="p-1 text-[#94A0B2] hover:bg-[#232934] rounded cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      ) : (
+                        <div className="w-full flex items-center justify-between gap-2">
+                          <span className="text-xs text-[#5E687A] italic select-none">
+                            {isDropHover ? t('chapters.dropToAssign') : t('chapters.noTitleHint')}
+                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInsertingAtIndex(entryIdx + 1);
+                                setInsertingDraft('');
+                              }}
+                              title={t('chapters.insertTitleBelowTooltip')}
+                              className="p-1 text-[#647082] hover:text-sky-300 hover:bg-[#222834] rounded transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingMarkerId(entry.id);
+                                setAddingMarkerDraft('');
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#222834] rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              {t('chapters.enterTitleButton')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="w-full flex items-center justify-between gap-2">
-                      <span className="text-xs text-[#5E687A] italic select-none">
-                        {isDropHover ? t('chapters.dropToAssign') : t('chapters.noTitleHint')}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddingMarkerId(marker.id);
-                          setAddingMarkerDraft('');
-                        }}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-[#94A0B2] hover:text-[#F8FAFC] hover:bg-[#222834] rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        {t('chapters.enterTitleButton')}
-                      </button>
-                    </div>
+                  </div>
+
+                  {/* Inline insert title form triggered right below this row */}
+                  {insertingAtIndex === entryIdx + 1 && renderInlineInsertForm(entryIdx + 1)}
+
+                  {isTimed && (
+                    <TimelinePlayheadGap
+                      active={isGapActiveAfter}
+                      progress={gapProgressAfter}
+                      currentTimeSec={currentTimeSec}
+                      playbackMode={playbackMode}
+                      accent="amber"
+                    />
                   )}
-                </div>
-              </div>
-                  <TimelinePlayheadGap
-                    active={isGapActiveAfter}
-                    progress={gapProgressAfter}
-                    currentTimeSec={currentTimeSec}
-                    playbackMode={playbackMode}
-                    accent="amber"
-                  />
                 </React.Fragment>
               );
             })}
@@ -504,142 +733,16 @@ export const ChapterTimelinePanel: React.FC<ChapterTimelinePanelProps> = ({
         )}
       </div>
 
-      {/* Unassigned Chapter Titles Pool (Type A imports, detached titles, manual queue) */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (!dropTargetPool) setDropTargetPool(true);
-        }}
-        onDragLeave={() => setDropTargetPool(false)}
-        onDrop={handleDropOnPool}
-        className={`border-t border-[#262B34] bg-[#111419] px-3 py-3 shrink-0 transition-colors ${
-          dropTargetPool ? 'bg-sky-500/10 border-t-sky-400' : ''
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="text-xs font-medium text-[#CBD5E1]">
-            {t('chapters.unassignedHeader', { count: unassignedTitles.length })}
-          </div>
-          {unassignedTitles.length > 0 && emptyMarkerCount > 0 && (
-            <button
-              type="button"
-              onClick={onAutoAssignUnassigned}
-              title={t('chapters.autoAssignTooltip')}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors whitespace-nowrap cursor-pointer"
-            >
-              <Wand2 className="w-3 h-3" />
-              {t('chapters.autoAssignButton')}
-            </button>
-          )}
-        </div>
-
-        {unassignedTitles.length > 0 && (
-          <div className="max-h-36 overflow-y-auto space-y-1 mb-2.5 pe-0.5">
-            {unassignedTitles.map((title, uIdx) => (
-              <div
-                key={title.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, title.id)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded bg-[#181C24] border border-[#262C38] hover:border-[#3A4354] cursor-grab active:cursor-grabbing ${
-                  draggedTitleId === title.id ? 'opacity-40' : ''
-                }`}
-              >
-                <GripVertical className="w-3.5 h-3.5 text-[#586274] shrink-0" />
-                {editingTitleId === title.id ? (
-                  <div className="flex-1 flex items-center gap-1 min-w-0">
-                    <input
-                      type="text"
-                      dir="auto"
-                      value={editingDraft}
-                      autoFocus
-                      onChange={(e) => setEditingDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') commitEditing();
-                        if (e.key === 'Escape') {
-                          setEditingTitleId(null);
-                          setEditingDraft('');
-                        }
-                      }}
-                      className="flex-1 min-w-0 px-1.5 py-0.5 text-xs bg-[#0D0F12] border border-amber-400/70 rounded text-[#F8FAFC] focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={commitEditing}
-                      className="p-0.5 text-emerald-400 cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    dir="auto"
-                    onClick={() => startEditing(title)}
-                    className="flex-1 min-w-0 text-start text-xs text-[#E2E8F0] hover:text-amber-200 truncate cursor-text"
-                  >
-                    {title.text}
-                  </button>
-                )}
-
-                <div className="flex items-center gap-0.5 shrink-0">
-                  {emptyMarkerCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const firstEmpty = sortedMarkers.find((m) => !titleByMarkerId.has(m.id));
-                        if (firstEmpty) {
-                          onMoveOrSwapTitleToMarker(title.id, firstEmpty.id);
-                        }
-                      }}
-                      title={t('chapters.assignToFirstEmptyTooltip')}
-                      className="p-1 text-[#94A0B2] hover:text-amber-300 rounded cursor-pointer"
-                    >
-                      <CornerDownRight className="w-3 h-3 rtl:scale-x-[-1]" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={uIdx === 0}
-                    onClick={() => onReorderUnassignedTitle(title.id, -1)}
-                    title={t('chapters.moveUpTooltip')}
-                    className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] disabled:opacity-30 rounded cursor-pointer"
-                  >
-                    <ArrowUp className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={uIdx === unassignedTitles.length - 1}
-                    onClick={() => onReorderUnassignedTitle(title.id, 1)}
-                    title={t('chapters.moveDownTooltip')}
-                    className="p-1 text-[#94A0B2] hover:text-[#F8FAFC] disabled:opacity-30 rounded cursor-pointer"
-                  >
-                    <ArrowDown className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteTitle(title.id)}
-                    title={t('common.delete')}
-                    className="p-1 text-[#94A0B2] hover:text-red-400 rounded cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Quick add title row */}
-        <form onSubmit={commitUnassignedNewTitle} className="flex items-center gap-1.5">
+      {/* Bottom Quick-Add Title Bar (works even with zero markers!) */}
+      <div className="border-t border-[#262B34] bg-[#111419] px-3 py-3 shrink-0">
+        <form onSubmit={commitBottomNewTitle} className="flex items-center gap-1.5">
           <input
             type="text"
             dir="auto"
             value={newUnassignedDraft}
             onChange={(e) => setNewUnassignedDraft(e.target.value)}
             placeholder={t('chapters.addNewTitlePlaceholder')}
-            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-[#181C24] border border-[#2A313E] focus:border-amber-400/70 rounded text-[#F3F5F8] placeholder:text-[#5E687A] focus:outline-none"
+            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-[#181C24] border border-[#2A313E] focus:border-sky-400/70 rounded text-[#F3F5F8] placeholder:text-[#5E687A] focus:outline-none"
           />
           <button
             type="submit"

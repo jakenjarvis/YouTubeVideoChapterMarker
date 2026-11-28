@@ -86,3 +86,40 @@ export interface AnalysisProgress {
   elapsedMs: number;
   switchedToBackground: boolean;
 }
+
+/**
+ * Unified order-preserving chapter row.
+ * Supports:
+ *  - Timed chapter (timeSec !== null, title.length > 0)
+ *  - Untitled marker (timeSec !== null, title === '')
+ *  - Untimed title row (timeSec === null, title.length > 0) preserving narrative order between timed rows
+ */
+export interface ChapterEntry {
+  id: string;
+  timeSec: number | null;
+  frameIndex: number | null;
+  title: string;
+}
+
+/**
+ * Narrowed video interval inferred from neighboring timed chapters around an untimed row
+ * (e.g. A..D when B and C are untimed between A and D).
+ */
+export interface FocusedSearchRange {
+  targetKey: string;
+  targetTitle: string;
+  startSec: number;
+  endSec: number;
+  startLabel: string | null;
+  endLabel: string | null;
+  isNarrowed: boolean;
+}
+
+export type WorkspaceView = 'timeline' | 'spreadsheet';
+export type SpreadsheetSyncMode = 'off' | 'seek' | 'preview10s';
+export type SheetTheme = 'dark' | 'light';
+export type SheetFontSize = 'sm' | 'md' | 'lg' | 'xl';
+
+/** Sparse map of non-empty cells in columns C+ (colIndex >= 2) keyed by 0-based row index */
+export type ScratchpadCells = Record<number, Record<number, string>>;
+

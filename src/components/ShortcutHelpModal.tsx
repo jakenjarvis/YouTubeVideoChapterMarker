@@ -15,6 +15,7 @@ interface ShortcutItemDef {
 interface ShortcutGroupDef {
   titleKey: TranslationKey;
   items: ShortcutItemDef[];
+  fullWidth?: boolean;
 }
 
 const SHORTCUT_GROUPS: ShortcutGroupDef[] = [
@@ -52,6 +53,18 @@ const SHORTCUT_GROUPS: ShortcutGroupDef[] = [
       { keysKey: 'shortcuts.keyShiftPN', descKey: 'shortcuts.jumpSceneDesc' },
     ],
   },
+  {
+    titleKey: 'shortcuts.groupSpreadsheet',
+    fullWidth: true,
+    items: [
+      { keysKey: 'shortcuts.keySheetMove', descKey: 'shortcuts.sheetMoveDesc' },
+      { keysKey: 'shortcuts.keySheetEdit', descKey: 'shortcuts.sheetEditDesc' },
+      { keysKey: 'shortcuts.keySheetLoop10s', descKey: 'shortcuts.sheetLoop10sDesc' },
+      { keysKey: 'shortcuts.keySheetClipboard', descKey: 'shortcuts.sheetClipboardDesc' },
+      { keysKey: 'shortcuts.keySheetUndoRedo', descKey: 'shortcuts.sheetUndoRedoDesc' },
+      { keysKey: 'shortcuts.keySheetSelectClear', descKey: 'shortcuts.sheetSelectClearDesc' },
+    ],
+  },
 ];
 
 export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, onClose }) => {
@@ -67,10 +80,10 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
       aria-labelledby="shortcut-help-title"
     >
       <div
-        className="w-full max-w-xl bg-[#14171C] border border-[#2C3340] rounded-xl overflow-hidden shadow-2xl"
+        className="w-full max-w-2xl max-h-[88vh] flex flex-col bg-[#14171C] border border-[#2C3340] rounded-xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-[#222731] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[#222731] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <Keyboard className="w-4 h-4 text-amber-400" />
             <h2 id="shortcut-help-title" className="text-base font-semibold text-[#F3F5F8]">
@@ -87,24 +100,39 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="p-6 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
           {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.titleKey} className="space-y-2.5">
-              <h3 className="text-xs font-semibold text-amber-400">{t(group.titleKey)}</h3>
-              <div className="space-y-2">
+            <div
+              key={group.titleKey}
+              className={`space-y-2.5 ${
+                group.fullWidth ? 'sm:col-span-2 pt-3 border-t border-[#222731]' : ''
+              }`}
+            >
+              <h3
+                className={`text-xs font-semibold ${
+                  group.fullWidth ? 'text-emerald-400' : 'text-amber-400'
+                }`}
+              >
+                {t(group.titleKey)}
+              </h3>
+              <div
+                className={
+                  group.fullWidth ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2' : 'space-y-2'
+                }
+              >
                 {group.items.map((item) => (
-                    <div
-                      key={item.descKey}
-                      className="flex items-center justify-between gap-2 text-xs border-b border-[#1E232C] pb-1.5"
+                  <div
+                    key={item.descKey}
+                    className="flex items-center justify-between gap-2 text-xs border-b border-[#1E232C] pb-1.5"
+                  >
+                    <span className="text-[#CBD5E1]">{t(item.descKey)}</span>
+                    <kbd
+                      dir="ltr"
+                      className="font-mono-tabular text-[11px] px-1.5 py-0.5 rounded bg-[#0D0F12] border border-[#2C3340] text-[#F3F5F8] whitespace-nowrap shrink-0"
                     >
-                      <span className="text-[#CBD5E1]">{t(item.descKey)}</span>
-                      <kbd
-                        dir="ltr"
-                        className="font-mono-tabular text-[11px] px-1.5 py-0.5 rounded bg-[#0D0F12] border border-[#2C3340] text-[#F3F5F8] whitespace-nowrap shrink-0"
-                      >
-                        {t(item.keysKey)}
-                      </kbd>
-                    </div>
+                      {t(item.keysKey)}
+                    </kbd>
+                  </div>
                 ))}
               </div>
             </div>

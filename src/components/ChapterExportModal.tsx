@@ -23,6 +23,7 @@ interface ChapterExportModalProps {
   isOpen: boolean;
   markers: Marker[];
   titles: ChapterTitle[];
+  untimedTitleCount?: number;
   fileName?: string;
   videoDurationSec?: number;
   onClose: () => void;
@@ -62,6 +63,7 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
   isOpen,
   markers,
   titles,
+  untimedTitleCount = 0,
   fileName,
   videoDurationSec,
   onClose,
@@ -259,6 +261,13 @@ export const ChapterExportModal: React.FC<ChapterExportModalProps> = ({
             <div className="flex items-start gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-md px-3 py-2">
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{t('importExport.layoutNonYouTubeChapterNote')}</span>
+            </div>
+          )}
+
+          {untimedTitleCount > 0 && (
+            <div className="flex items-start gap-2 text-xs text-sky-300 bg-sky-500/10 border border-sky-500/25 rounded-md px-3 py-2">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{t('importExport.untimedTitlesExcludedNote', { count: untimedTitleCount })}</span>
             </div>
           )}
 

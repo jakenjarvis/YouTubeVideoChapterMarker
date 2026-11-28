@@ -211,7 +211,7 @@ const ZERO_WIDTH_ONLY_EDGE_RE = /^[\u200B-\u200D\u2060\uFEFF]+|[\u200B-\u200D\u2
  * Supports double-quoted fields with escaped quotes ("") and trims unquoted cell whitespace.
  * Returns null if quotes are malformed (unclosed or invalid characters after closing quote).
  */
-function parseDelimitedRow(line: string, delimiter: '\t' | ','): string[] | null {
+export function parseDelimitedRow(line: string, delimiter: '\t' | ','): string[] | null {
   if (!line.includes(delimiter)) return null;
 
   const cells: string[] = [];
@@ -280,7 +280,7 @@ function parseDelimitedRow(line: string, delimiter: '\t' | ','): string[] | null
  * Parses a standalone table cell as a timestamp (optionally wrapped in matching brackets
  * or formatted as a time range like "00:00 - 01:30"). Returns null if not a pure timestamp cell.
  */
-function parseTimestampCell(rawCell: string): number | null {
+export function parseTimestampCell(rawCell: string): number | null {
   const cell = rawCell.replace(ZERO_WIDTH_EDGE_RE, '');
   if (!cell || cell.length > 48) return null;
 

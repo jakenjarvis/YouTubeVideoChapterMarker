@@ -13,16 +13,19 @@ import {
   Upload,
   Youtube,
   X,
+  Table2,
 } from 'lucide-react';
 import type {
   AnalysisProgress,
   AppMode,
-  ChapterTitle,
+  ChapterEntry,
+  FocusedSearchRange,
   FrameMapEntry,
   InternalScene,
-  Marker,
   PlaybackMode,
+  ScratchpadCells,
   VideoMetadata,
+  WorkspaceView,
 } from './types/video';
 import { analyzeVideoAndBuildFrameMap, buildUniformFrameMap } from './utils/mp4Parser';
 import { detectInternalScenesInBackground } from './utils/sceneDetector';
@@ -32,6 +35,23 @@ import {
   findFrameIndexByTime,
   type ParsedChapterLine,
 } from './utils/timecode';
+import {
+  assignTimeToEntry,
+  autoAssignUntimedToEmptyMarkers,
+  computeSearchRangeForEntry,
+  deleteMarkerFromEntry,
+  deleteTitleFromEntry,
+  deriveMarkersAndTitles,
+  importParsedLinesIntoEntries,
+  insertMarkerAtTime,
+  insertUntimedTitleAt,
+  moveOrSwapTitleBetweenEntries,
+  shiftTitlesDownFromEntry,
+  stepEntryTitle,
+  unlinkTimeFromEntry,
+  updateEntryTitle,
+} from './utils/chapterSequence';
+import type { SheetConversionResult } from './utils/spreadsheetEngine';
 import {
   extractYouTubeVideoId,
   parseChaptersFromDescription,
@@ -44,6 +64,7 @@ import { MetadataBar } from './components/MetadataBar';
 import { TimecodeDisplay } from './components/TimecodeDisplay';
 import { TransportControls } from './components/TransportControls';
 import { ChapterTimelinePanel } from './components/ChapterTimelinePanel';
+import { ChapterSpreadsheetPanel } from './components/ChapterSpreadsheetPanel';
 import { InternalScenePanel } from './components/InternalScenePanel';
 import {
   ChapterImportModal,
@@ -106,11 +127,13 @@ const INITIAL_PROGRESS: AnalysisProgress = {
 type RightPanelTab = 'chapters' | 'scenes';
 
 const SIDEBAR_STORAGE_KEY = 'vcm_right_panel_width';
+const SPREADSHEET_WIDTH_STORAGE_KEY = 'vcm_spreadsheet_panel_width';
 const VOLUME_STORAGE_KEY = 'vcm_volume';
 const MUTED_STORAGE_KEY = 'vcm_muted';
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const MIN_SIDEBAR_WIDTH = 320;
-const MIN_LEFT_PANEL_WIDTH = 380;
+const MIN_SPREADSHEET_WIDTH = 460;
+const MIN_LEFT_PANEL_WIDTH = 360;
 
 function readInitialSidebarWidth(): number {
   try {
@@ -125,6 +148,25 @@ function readInitialSidebarWidth(): number {
     // ignore storage access errors
   }
   return DEFAULT_SIDEBAR_WIDTH;
+}
+
+function readInitialSpreadsheetWidth(): number {
+  const defaultSheetW =
+    typeof window !== 'undefined'
+      ? Math.max(MIN_SPREADSHEET_WIDTH, Math.round(window.innerWidth * 0.62))
+      : 860;
+  try {
+    const raw = window.localStorage.getItem(SPREADSHEET_WIDTH_STORAGE_KEY);
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= MIN_SPREADSHEET_WIDTH) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore storage access errors
+  }
+  return defaultSheetW;
 }
 
 function readInitialVolume(): number {
@@ -171,11 +213,16 @@ export default function App() {
   const reverseVirtualTimeRef = useRef<number>(0);
   const lastRafTimeRef = useRef<number>(0);
   const lastYtReverseSeekMsRef = useRef<number>(0);
+  const previewLoopRangeRef = useRef<{ startSec: number; endSec: number } | null>(null);
+  const lastLoopWrapMsRef = useRef<number>(0);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const currentUrlRef = useRef<string | null>(null);
 
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
+  const currentTimeSecRef = useRef<number>(0);
+  currentTimeSecRef.current = currentTimeSec;
+  const getCurrentTimeSec = useCallback(() => currentTimeSecRef.current, []);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('paused');
   const [volume, setVolume] = useState<number>(readInitialVolume);
   const [isMuted, setIsMuted] = useState<boolean>(readInitialMuted);
@@ -188,15 +235,23 @@ export default function App() {
   const [youTubeModalError, setYouTubeModalError] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
-  // Markers & Chapter Titles (1-to-1 optional; supports untitled markers & unassigned titles)
-  const [markers, setMarkers] = useState<Marker[]>([]);
-  const [titles, setTitles] = useState<ChapterTitle[]>([]);
+  // Unified Order-Preserving Chapters (supports timed chapters, untitled markers, & untimed title rows in order)
+  const [entries, setEntries] = useState<ChapterEntry[]>([]);
+  const [sessionScratchpad, setSessionScratchpad] = useState<ScratchpadCells>({});
   const [lastSelectedMarkerId, setLastSelectedMarkerId] = useState<string | null>(null);
+  const [focusedUntimedEntryId, setFocusedUntimedEntryId] = useState<string | null>(null);
+  const [spreadsheetSearchRange, setSpreadsheetSearchRange] = useState<FocusedSearchRange | null>(null);
   const [lastSelectedSceneId, setLastSelectedSceneId] = useState<string | null>(null);
 
-  // Right Panel Tab, Resizable Width & Modals
+  // Workspace View Mode (Timeline vs Spreadsheet), Resizable Widths & Modals
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('timeline');
+  const [isSpreadsheetDirty, setIsSpreadsheetDirty] = useState(false);
+  const [spreadsheetCancelRequest, setSpreadsheetCancelRequest] = useState(0);
   const [rightTab, setRightTab] = useState<RightPanelTab>('chapters');
   const [rightPanelWidth, setRightPanelWidth] = useState<number>(readInitialSidebarWidth);
+  const [spreadsheetPanelWidth, setSpreadsheetPanelWidth] = useState<number>(
+    readInitialSpreadsheetWidth
+  );
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
@@ -263,104 +318,133 @@ export default function App() {
     [handleVolumeChange, isMuted, volume]
   );
 
-  // Keep layout mode & sidebar width safely clamped when the browser window resizes
+  const activeRightPanelWidth =
+    workspaceView === 'spreadsheet' ? spreadsheetPanelWidth : rightPanelWidth;
+
+  // Keep layout mode & sidebar widths safely clamped when the browser window resizes
   useEffect(() => {
     const handleWindowResize = () => {
       const desktop = window.innerWidth >= 1024;
       setIsDesktopLayout(desktop);
       if (desktop && workspaceRef.current) {
-        const maxAllowed = Math.max(
-          MIN_SIDEBAR_WIDTH,
-          workspaceRef.current.getBoundingClientRect().width - MIN_LEFT_PANEL_WIDTH
-        );
-        setRightPanelWidth((prev) => Math.min(prev, maxAllowed));
+        const containerW = workspaceRef.current.getBoundingClientRect().width;
+        const maxTimeline = Math.max(MIN_SIDEBAR_WIDTH, containerW - MIN_LEFT_PANEL_WIDTH);
+        const maxSheet = Math.max(MIN_SPREADSHEET_WIDTH, containerW - MIN_LEFT_PANEL_WIDTH);
+        setRightPanelWidth((prev) => Math.min(prev, maxTimeline));
+        setSpreadsheetPanelWidth((prev) => Math.min(prev, maxSheet));
       }
     };
     window.addEventListener('resize', handleWindowResize);
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
-  // Mouse / Pointer drag resize for the vertical boundary line
-  const handleSplitterPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    setIsResizingSidebar(true);
+  // Mouse / Pointer drag resize for the vertical boundary line (independent width per mode)
+  const handleSplitterPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      setIsResizingSidebar(true);
 
-    const prevCursor = document.body.style.cursor;
-    const prevUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
+      const prevCursor = document.body.style.cursor;
+      const prevUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
 
-    let latestWidth = rightPanelWidth;
+      const isSheet = workspaceView === 'spreadsheet';
+      const minW = isSheet ? MIN_SPREADSHEET_WIDTH : MIN_SIDEBAR_WIDTH;
+      const storageKey = isSheet ? SPREADSHEET_WIDTH_STORAGE_KEY : SIDEBAR_STORAGE_KEY;
+      let latestWidth = activeRightPanelWidth;
 
-    const handleMove = (moveEvent: PointerEvent) => {
-      const container = workspaceRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const isRtl = document.documentElement.dir === 'rtl';
-      const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, rect.width - MIN_LEFT_PANEL_WIDTH);
-      const rawWidth = isRtl ? moveEvent.clientX - rect.left : rect.right - moveEvent.clientX;
-      const nextWidth = Math.round(
-        Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, rawWidth))
-      );
-      latestWidth = nextWidth;
-      setRightPanelWidth(nextWidth);
-    };
+      const handleMove = (moveEvent: PointerEvent) => {
+        const container = workspaceRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const isRtl = document.documentElement.dir === 'rtl';
+        const maxWidth = Math.max(minW, rect.width - MIN_LEFT_PANEL_WIDTH);
+        const rawWidth = isRtl ? moveEvent.clientX - rect.left : rect.right - moveEvent.clientX;
+        const nextWidth = Math.round(Math.max(minW, Math.min(maxWidth, rawWidth)));
+        latestWidth = nextWidth;
+        if (isSheet) {
+          setSpreadsheetPanelWidth(nextWidth);
+        } else {
+          setRightPanelWidth(nextWidth);
+        }
+      };
 
-    const handleEnd = () => {
-      setIsResizingSidebar(false);
-      document.body.style.cursor = prevCursor;
-      document.body.style.userSelect = prevUserSelect;
-      window.removeEventListener('pointermove', handleMove);
-      window.removeEventListener('pointerup', handleEnd);
-      window.removeEventListener('pointercancel', handleEnd);
-      try {
-        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(latestWidth));
-      } catch {
-        // ignore storage errors
-      }
-    };
+      const handleEnd = () => {
+        setIsResizingSidebar(false);
+        document.body.style.cursor = prevCursor;
+        document.body.style.userSelect = prevUserSelect;
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleEnd);
+        window.removeEventListener('pointercancel', handleEnd);
+        try {
+          window.localStorage.setItem(storageKey, String(latestWidth));
+        } catch {
+          // ignore storage errors
+        }
+      };
 
-    window.addEventListener('pointermove', handleMove);
-    window.addEventListener('pointerup', handleEnd);
-    window.addEventListener('pointercancel', handleEnd);
-  }, [rightPanelWidth]);
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleEnd);
+      window.addEventListener('pointercancel', handleEnd);
+    },
+    [activeRightPanelWidth, workspaceView]
+  );
 
   const handleSplitterDoubleClick = useCallback(() => {
     const container = workspaceRef.current;
-    const maxWidth = container
-      ? Math.max(MIN_SIDEBAR_WIDTH, container.getBoundingClientRect().width - MIN_LEFT_PANEL_WIDTH)
+    const isSheet = workspaceView === 'spreadsheet';
+    const minW = isSheet ? MIN_SPREADSHEET_WIDTH : MIN_SIDEBAR_WIDTH;
+    const containerW = container?.getBoundingClientRect().width ?? 1400;
+    const maxWidth = Math.max(minW, containerW - MIN_LEFT_PANEL_WIDTH);
+    const defaultW = isSheet
+      ? Math.max(MIN_SPREADSHEET_WIDTH, Math.round(containerW * 0.62))
       : DEFAULT_SIDEBAR_WIDTH;
-    const resetWidth = Math.min(DEFAULT_SIDEBAR_WIDTH, maxWidth);
-    setRightPanelWidth(resetWidth);
+    const resetWidth = Math.min(defaultW, maxWidth);
+    if (isSheet) {
+      setSpreadsheetPanelWidth(resetWidth);
+    } else {
+      setRightPanelWidth(resetWidth);
+    }
     try {
-      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(resetWidth));
+      window.localStorage.setItem(
+        isSheet ? SPREADSHEET_WIDTH_STORAGE_KEY : SIDEBAR_STORAGE_KEY,
+        String(resetWidth)
+      );
     } catch {
       // ignore storage errors
     }
-  }, []);
+  }, [workspaceView]);
 
-  const handleSplitterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    const step = e.shiftKey ? 48 : 16;
-    const isRtl = document.documentElement.dir === 'rtl';
-    const delta =
-      e.key === 'ArrowLeft' ? (isRtl ? -step : step) : isRtl ? step : -step;
-    const container = workspaceRef.current;
-    const maxWidth = container
-      ? Math.max(MIN_SIDEBAR_WIDTH, container.getBoundingClientRect().width - MIN_LEFT_PANEL_WIDTH)
-      : 900;
-    setRightPanelWidth((prev) => {
-      const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, prev + delta));
-      try {
-        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, []);
+  const handleSplitterKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const step = e.shiftKey ? 48 : 16;
+      const isRtl = document.documentElement.dir === 'rtl';
+      const delta =
+        e.key === 'ArrowLeft' ? (isRtl ? -step : step) : isRtl ? step : -step;
+      const container = workspaceRef.current;
+      const isSheet = workspaceView === 'spreadsheet';
+      const minW = isSheet ? MIN_SPREADSHEET_WIDTH : MIN_SIDEBAR_WIDTH;
+      const maxWidth = container
+        ? Math.max(minW, container.getBoundingClientRect().width - MIN_LEFT_PANEL_WIDTH)
+        : 1000;
+      const setter = isSheet ? setSpreadsheetPanelWidth : setRightPanelWidth;
+      const storageKey = isSheet ? SPREADSHEET_WIDTH_STORAGE_KEY : SIDEBAR_STORAGE_KEY;
+      setter((prev) => {
+        const next = Math.max(minW, Math.min(maxWidth, prev + delta));
+        try {
+          window.localStorage.setItem(storageKey, String(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    },
+    [workspaceView]
+  );
 
   // Sync ref with state
   useEffect(() => {
@@ -382,6 +466,7 @@ export default function App() {
   }, []);
 
   const pausePlayback = useCallback(() => {
+    previewLoopRangeRef.current = null;
     if (sourceTypeRef.current === 'youtube') {
       youtubeControllerRef.current?.pause();
     } else {
@@ -406,6 +491,7 @@ export default function App() {
     if (!entry) return;
 
     if (!keepPlaying) {
+      previewLoopRangeRef.current = null;
       if (sourceTypeRef.current === 'youtube') {
         youtubeControllerRef.current?.pause();
       } else {
@@ -450,6 +536,7 @@ export default function App() {
   );
 
   const playForward = useCallback(() => {
+    previewLoopRangeRef.current = null;
     const frames = frameMapRef.current;
     if (frames.length === 0) return;
     const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
@@ -485,7 +572,52 @@ export default function App() {
     });
   }, [isMuted, seekToFrameIndex, volume]);
 
+  /**
+   * Seeks to `targetSec` and loops forward for `previewDurationSec` (default 10s) until stopped or moved.
+   */
+  const previewAtTime = useCallback(
+    (targetSec: number, previewDurationSec = 10) => {
+      const frames = frameMapRef.current;
+      if (frames.length === 0) return;
+      const maxAllowed = Math.max(0, analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec);
+      const clampedSec = Math.max(0, Math.min(maxAllowed, targetSec));
+      const idx = findFrameIndexByTime(frames, clampedSec);
+      const snappedStart = frames[idx]?.timeSec ?? clampedSec;
+      seekToFrameIndex(idx, true);
+
+      const stopAt = Math.min(maxAllowed, snappedStart + Math.max(1, previewDurationSec));
+      previewLoopRangeRef.current =
+        stopAt > snappedStart + 0.08 ? { startSec: snappedStart, endSec: stopAt } : null;
+      lastLoopWrapMsRef.current = performance.now();
+
+      if (sourceTypeRef.current === 'youtube') {
+        const yt = youtubeControllerRef.current;
+        if (!yt || !yt.isReady()) return;
+        yt.setVolume(volume);
+        yt.setMuted(isMuted || volume <= 0);
+        playbackModeRef.current = 'forward';
+        setPlaybackMode('forward');
+        yt.play();
+        return;
+      }
+
+      const v = videoRef.current;
+      if (!v) return;
+      v.volume = Math.max(0, Math.min(1, volume));
+      v.muted = isMuted || volume <= 0;
+      playbackModeRef.current = 'forward';
+      setPlaybackMode('forward');
+      v.play().catch(() => {
+        previewLoopRangeRef.current = null;
+        playbackModeRef.current = 'paused';
+        setPlaybackMode('paused');
+      });
+    },
+    [isMuted, seekToFrameIndex, volume]
+  );
+
   const playReverse = useCallback(() => {
+    previewLoopRangeRef.current = null;
     const frames = frameMapRef.current;
     if (frames.length === 0) return;
 
@@ -567,7 +699,21 @@ export default function App() {
             if (mode === 'forward') {
               const curT = yt.getCurrentTime();
               const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
-              if (curT >= maxAllowed - 0.05 && maxAllowed > 0) {
+              const previewLoop = previewLoopRangeRef.current;
+              if (previewLoop !== null && curT >= previewLoop.endSec - 0.05) {
+                if (now - lastLoopWrapMsRef.current >= 450) {
+                  lastLoopWrapMsRef.current = now;
+                  const loopIdx = findFrameIndexByTime(frames, previewLoop.startSec);
+                  const loopEntry = frames[loopIdx];
+                  yt.seekTo(previewLoop.startSec, true);
+                  yt.play();
+                  if (loopEntry) {
+                    setCurrentFrameIndex(loopEntry.frameIndex);
+                    setCurrentTimeSec(loopEntry.timeSec);
+                  }
+                }
+              } else if (curT >= maxAllowed - 0.05 && maxAllowed > 0) {
+                previewLoopRangeRef.current = null;
                 yt.pause();
                 const endIdx = findFrameIndexByTime(frames, maxAllowed);
                 const endEntry = frames[endIdx];
@@ -617,7 +763,28 @@ export default function App() {
           if (v) {
             if (mode === 'forward') {
               const maxAllowed = analyzedMaxTimeRef.current || frames[frames.length - 1].timeSec;
-              if (v.ended || v.currentTime >= maxAllowed - 0.005) {
+              const previewLoop = previewLoopRangeRef.current;
+              if (previewLoop !== null && (v.ended || v.currentTime >= previewLoop.endSec - 0.02)) {
+                try {
+                  v.currentTime = previewLoop.startSec;
+                } catch {
+                  // ignore transient seek errors
+                }
+                if (v.paused || v.ended) {
+                  v.play().catch(() => {
+                    previewLoopRangeRef.current = null;
+                    playbackModeRef.current = 'paused';
+                    setPlaybackMode('paused');
+                  });
+                }
+                const loopIdx = findFrameIndexByTime(frames, previewLoop.startSec);
+                const loopEntry = frames[loopIdx];
+                if (loopEntry) {
+                  setCurrentFrameIndex(loopEntry.frameIndex);
+                  setCurrentTimeSec(loopEntry.timeSec);
+                }
+              } else if (v.ended || v.currentTime >= maxAllowed - 0.005) {
+                previewLoopRangeRef.current = null;
                 v.pause();
                 const endIdx = findFrameIndexByTime(frames, maxAllowed);
                 const endEntry = frames[endIdx];
@@ -701,10 +868,15 @@ export default function App() {
     frameMapRef.current = [];
     analyzedMaxTimeRef.current = 0;
     setInternalScenes([]);
-    setMarkers([]);
-    setTitles([]);
+    setEntries([]);
+    setSessionScratchpad({});
+    setWorkspaceView('timeline');
+    setIsSpreadsheetDirty(false);
+    setFocusedUntimedEntryId(null);
+    setSpreadsheetSearchRange(null);
     setLastSelectedMarkerId(null);
     setLastSelectedSceneId(null);
+    previewLoopRangeRef.current = null;
     setCurrentFrameIndex(0);
     setCurrentTimeSec(0);
     setPlaybackMode('paused');
@@ -1014,33 +1186,29 @@ export default function App() {
           analyzedFrameCount: frames.length,
         }));
 
-        // Populate markers & titles from YouTube description chapter list when enabled
-        const loadedMarkers: Marker[] = [];
-        const loadedTitles: ChapterTitle[] = [];
+        // Populate unified entries from YouTube description chapter list when enabled
+        const loadedEntries: ChapterEntry[] = [];
         if (autoImportChapters && payload.chapters.length > 0) {
           for (const ch of payload.chapters) {
             const clampedSec = Math.max(0, Math.min(durationSec, ch.timeSec));
             const idx = findFrameIndexByTime(frames, clampedSec);
             const entry = frames[idx];
-            const mk: Marker = {
+            loadedEntries.push({
               id: createId('mk'),
               frameIndex: entry ? entry.frameIndex : idx,
               timeSec: entry ? entry.timeSec : clampedSec,
-            };
-            loadedMarkers.push(mk);
-            if (ch.title.trim().length > 0) {
-              loadedTitles.push({
-                id: createId('ch'),
-                text: ch.title.trim(),
-                assignedMarkerId: mk.id,
-                unassignedOrder: 0,
-              });
-            }
+              title: ch.title.trim(),
+            });
           }
         }
 
-        setMarkers(loadedMarkers);
-        setTitles(loadedTitles);
+        setEntries(loadedEntries);
+        setSessionScratchpad({});
+        setWorkspaceView('timeline');
+        setIsSpreadsheetDirty(false);
+        setFocusedUntimedEntryId(null);
+        setSpreadsheetSearchRange(null);
+        previewLoopRangeRef.current = null;
         setLastSelectedMarkerId(null);
         setLastSelectedSceneId(null);
         setRightTab('chapters');
@@ -1054,15 +1222,15 @@ export default function App() {
         );
         if (localizedWarning) {
           setStatusNotice(localizedWarning);
-        } else if (autoImportChapters && loadedMarkers.length > 0) {
+        } else if (autoImportChapters && loadedEntries.length > 0) {
           const sourceLabel =
             payload.chapterSource === 'description'
               ? translate('notices.chapterSourceDescription')
               : translate('notices.chapterSourceYouTube');
           setStatusNotice(
-            translatePlural('notices.youtubeChaptersLoaded', loadedMarkers.length, {
+            translatePlural('notices.youtubeChaptersLoaded', loadedEntries.length, {
               source: sourceLabel,
-              count: loadedMarkers.length,
+              count: loadedEntries.length,
             })
           );
         } else if (autoImportChapters) {
@@ -1134,14 +1302,15 @@ export default function App() {
           analyzedMaxTimeSec: playerDurationSec,
           analyzedFrameCount: frames.length,
         }));
-        setMarkers((prev) =>
-          prev.map((m) => {
-            const clampedSec = Math.max(0, Math.min(playerDurationSec, m.timeSec));
+        setEntries((prev) =>
+          prev.map((item) => {
+            if (item.timeSec === null) return item;
+            const clampedSec = Math.max(0, Math.min(playerDurationSec, item.timeSec));
             const idx = findFrameIndexByTime(frames, clampedSec);
             const entry = frames[idx];
             return entry
-              ? { ...m, frameIndex: entry.frameIndex, timeSec: entry.timeSec }
-              : m;
+              ? { ...item, frameIndex: entry.frameIndex, timeSec: entry.timeSec }
+              : item;
           })
         );
       }
@@ -1160,11 +1329,34 @@ export default function App() {
     }
   }, []);
 
-  // --- Marker & Chapter Title Operations ---
-  const sortedMarkers = useMemo(
-    () => [...markers].sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex),
-    [markers]
+  // --- Unified Order-Preserving Marker & Chapter Operations ---
+  const { markers: sortedMarkers, titles } = useMemo(
+    () => deriveMarkersAndTitles(entries),
+    [entries]
   );
+
+  const untimedTitleCount = useMemo(
+    () => entries.filter((e) => e.timeSec === null && e.title.trim().length > 0).length,
+    [entries]
+  );
+
+  const focusedSearchRange = useMemo<FocusedSearchRange | null>(() => {
+    if (workspaceView === 'spreadsheet') {
+      return spreadsheetSearchRange;
+    }
+    if (!focusedUntimedEntryId) return null;
+    return computeSearchRangeForEntry(
+      entries,
+      focusedUntimedEntryId,
+      metadata?.durationSec ?? 0
+    );
+  }, [
+    entries,
+    focusedUntimedEntryId,
+    metadata?.durationSec,
+    spreadsheetSearchRange,
+    workspaceView,
+  ]);
 
   const addMarkerAtCurrent = useCallback(() => {
     const frames = frameMapRef.current;
@@ -1172,305 +1364,150 @@ export default function App() {
     const frameIndex = entry ? entry.frameIndex : currentFrameIndex;
     const timeSec = entry ? entry.timeSec : currentTimeSec;
 
-    const existing = markers.find((m) => m.frameIndex === frameIndex);
-    if (existing) {
-      setLastSelectedMarkerId(existing.id);
-      return;
-    }
-
-    const newId = createId('mk');
-    setMarkers((prev) => {
-      if (prev.some((m) => m.frameIndex === frameIndex)) {
-        return prev;
-      }
-      return [...prev, { id: newId, frameIndex, timeSec }];
+    setEntries((prev) => {
+      const res = insertMarkerAtTime(prev, frameIndex, timeSec);
+      setLastSelectedMarkerId(res.markerId);
+      return res.entries;
     });
-    setLastSelectedMarkerId(newId);
-  }, [currentFrameIndex, currentTimeSec, markers]);
+  }, [currentFrameIndex, currentTimeSec]);
 
-  const deleteMarker = useCallback((markerId: string) => {
-    setMarkers((prev) => prev.filter((m) => m.id !== markerId));
-    setLastSelectedMarkerId((prev) => (prev === markerId ? null : prev));
-    // Detach any title assigned to this marker so user's text isn't silently destroyed
-    setTitles((prev) => {
-      const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
-      let nextOrder = maxOrder + 1;
-      return prev.map((t) =>
-        t.assignedMarkerId === markerId
-          ? { ...t, assignedMarkerId: null, unassignedOrder: nextOrder++ }
-          : t
-      );
-    });
-  }, []);
+  const assignCurrentTimeToEntry = useCallback(
+    (entryId: string) => {
+      const frames = frameMapRef.current;
+      const frameEntry = frames[currentFrameIndex];
+      const frameIndex = frameEntry ? frameEntry.frameIndex : currentFrameIndex;
+      const timeSec = frameEntry ? frameEntry.timeSec : currentTimeSec;
 
-  const addTitleForMarker = useCallback((markerId: string, text: string) => {
-    setTitles((prev) => {
-      const existing = prev.find((t) => t.assignedMarkerId === markerId);
-      if (existing) {
-        return prev.map((t) => (t.id === existing.id ? { ...t, text } : t));
-      }
-      return [
-        ...prev,
-        {
-          id: createId('ch'),
-          text,
-          assignedMarkerId: markerId,
-          unassignedOrder: 0,
-        },
-      ];
-    });
-  }, []);
-
-  const addUnassignedTitle = useCallback((text: string) => {
-    setTitles((prev) => {
-      const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
-      return [
-        ...prev,
-        {
-          id: createId('ch'),
-          text,
-          assignedMarkerId: null,
-          unassignedOrder: maxOrder + 1,
-        },
-      ];
-    });
-  }, []);
-
-  const updateTitleText = useCallback((titleId: string, text: string) => {
-    setTitles((prev) => prev.map((t) => (t.id === titleId ? { ...t, text } : t)));
-  }, []);
-
-  const deleteTitle = useCallback((titleId: string) => {
-    setTitles((prev) => prev.filter((t) => t.id !== titleId));
-  }, []);
-
-  const unassignTitle = useCallback((titleId: string) => {
-    setTitles((prev) => {
-      const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
-      return prev.map((t) =>
-        t.id === titleId
-          ? { ...t, assignedMarkerId: null, unassignedOrder: maxOrder + 1 }
-          : t
-      );
-    });
-  }, []);
-
-  /**
-   * Moves a title to targetMarkerId. If targetMarkerId already holds another title, cleanly SWAPS them!
-   */
-  const moveOrSwapTitleToMarker = useCallback((titleId: string, targetMarkerId: string) => {
-    setTitles((prev) => {
-      const source = prev.find((t) => t.id === titleId);
-      if (!source || source.assignedMarkerId === targetMarkerId) return prev;
-
-      const occupant = prev.find((t) => t.assignedMarkerId === targetMarkerId);
-      const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
-
-      return prev.map((t) => {
-        if (t.id === source.id) {
-          return { ...t, assignedMarkerId: targetMarkerId };
-        }
-        if (occupant && t.id === occupant.id) {
-          // Swap: occupant takes source's old marker, or goes to unassigned pool if source was unassigned
-          return {
-            ...t,
-            assignedMarkerId: source.assignedMarkerId,
-            unassignedOrder: source.assignedMarkerId === null ? source.unassignedOrder : maxOrder + 1,
-          };
-        }
-        return t;
-      });
-    });
-  }, []);
-
-  /**
-   * Moves an assigned title up (-1) or down (+1) by one marker row (swapping if adjacent is occupied).
-   */
-  const stepTitleOnTimeline = useCallback(
-    (titleId: string, direction: -1 | 1) => {
-      const title = titles.find((t) => t.id === titleId);
-      if (!title || !title.assignedMarkerId) return;
-      const curIdx = sortedMarkers.findIndex((m) => m.id === title.assignedMarkerId);
-      if (curIdx < 0) return;
-      const targetIdx = curIdx + direction;
-      if (targetIdx < 0 || targetIdx >= sortedMarkers.length) return;
-      moveOrSwapTitleToMarker(titleId, sortedMarkers[targetIdx].id);
-    },
-    [moveOrSwapTitleToMarker, sortedMarkers, titles]
-  );
-
-  /**
-   * Cascade-shifts all titles from `startMarkerIndex` downward by 1 marker slot.
-   * Any title pushed past the last marker moves safely into the unassigned pool.
-   */
-  const shiftTitlesDownFromMarker = useCallback(
-    (startMarkerIndex: number) => {
-      setTitles((prev) => {
-        const markerIds = sortedMarkers.map((m) => m.id);
-        const indexById = new Map<string, number>();
-        markerIds.forEach((id, i) => indexById.set(id, i));
-        const maxOrder = prev.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0);
-        let overflowOrder = maxOrder + 1;
-
-        return prev.map((t) => {
-          if (!t.assignedMarkerId) return t;
-          const idx = indexById.get(t.assignedMarkerId);
-          if (idx === undefined || idx < startMarkerIndex) return t;
-          const nextIdx = idx + 1;
-          if (nextIdx < markerIds.length) {
-            return { ...t, assignedMarkerId: markerIds[nextIdx] };
-          }
-          return { ...t, assignedMarkerId: null, unassignedOrder: overflowOrder++ };
-        });
+      setEntries((prev) => {
+        const res = assignTimeToEntry(prev, entryId, frameIndex, timeSec);
+        setLastSelectedMarkerId(res.targetId);
+        // If another untimed row remains right next to it, keep search flow snappy or clear focus
+        const nextUntimed = res.entries.find(
+          (e) => e.timeSec === null && e.title.trim().length > 0
+        );
+        setFocusedUntimedEntryId(nextUntimed ? nextUntimed.id : null);
+        return res.entries;
       });
     },
-    [sortedMarkers]
+    [currentFrameIndex, currentTimeSec]
   );
 
-  const reorderUnassignedTitle = useCallback((titleId: string, direction: -1 | 1) => {
-    setTitles((prev) => {
-      const unassigned = prev
-        .filter((t) => t.assignedMarkerId === null)
-        .sort((a, b) => a.unassignedOrder - b.unassignedOrder);
-      const idx = unassigned.findIndex((t) => t.id === titleId);
-      const targetIdx = idx + direction;
-      if (idx < 0 || targetIdx < 0 || targetIdx >= unassigned.length) return prev;
+  const deleteMarker = useCallback((entryId: string) => {
+    setEntries((prev) => deleteMarkerFromEntry(prev, entryId));
+    setLastSelectedMarkerId((prev) => (prev === entryId ? null : prev));
+  }, []);
 
-      const copy = [...unassigned];
-      const [moved] = copy.splice(idx, 1);
-      copy.splice(targetIdx, 0, moved);
+  const addTitleForMarker = useCallback((entryId: string, text: string) => {
+    setEntries((prev) => updateEntryTitle(prev, entryId, text));
+  }, []);
 
-      const newOrderMap = new Map<string, number>();
-      copy.forEach((t, i) => newOrderMap.set(t.id, i + 1));
-
-      return prev.map((t) =>
-        t.assignedMarkerId === null && newOrderMap.has(t.id)
-          ? { ...t, unassignedOrder: newOrderMap.get(t.id)! }
-          : t
-      );
+  const handleInsertUntimedTitleAt = useCallback((text: string, insertIndex?: number) => {
+    setEntries((prev) => {
+      const res = insertUntimedTitleAt(prev, text, insertIndex);
+      setFocusedUntimedEntryId(res.addedId);
+      return res.entries;
     });
+  }, []);
+
+  const updateTitleText = useCallback((entryId: string, text: string) => {
+    setEntries((prev) => updateEntryTitle(prev, entryId, text));
+  }, []);
+
+  const deleteTitle = useCallback((entryId: string) => {
+    setEntries((prev) => deleteTitleFromEntry(prev, entryId));
+    setFocusedUntimedEntryId((prev) => (prev === entryId ? null : prev));
+  }, []);
+
+  const unassignTitle = useCallback((entryId: string) => {
+    setEntries((prev) => unlinkTimeFromEntry(prev, entryId));
+    setLastSelectedMarkerId((prev) => (prev === entryId ? null : prev));
+    setFocusedUntimedEntryId(entryId);
+  }, []);
+
+  const handleMoveOrSwapTitleBetweenEntries = useCallback(
+    (sourceId: string, targetId: string) => {
+      setEntries((prev) => moveOrSwapTitleBetweenEntries(prev, sourceId, targetId));
+    },
+    []
+  );
+
+  const handleStepEntryTitle = useCallback((entryId: string, direction: -1 | 1) => {
+    setEntries((prev) => stepEntryTitle(prev, entryId, direction));
+  }, []);
+
+  const handleShiftTitlesDownFromEntry = useCallback((startEntryId: string) => {
+    setEntries((prev) => shiftTitlesDownFromEntry(prev, startEntryId));
   }, []);
 
   const autoAssignUnassigned = useCallback(() => {
-    setTitles((prev) => {
-      const occupied = new Set(prev.filter((t) => t.assignedMarkerId).map((t) => t.assignedMarkerId!));
-      const emptyMarkers = sortedMarkers.filter((m) => !occupied.has(m.id));
-      if (emptyMarkers.length === 0) return prev;
+    setEntries((prev) => autoAssignUntimedToEmptyMarkers(prev));
+    setFocusedUntimedEntryId(null);
+  }, []);
 
-      const unassignedIds = prev
-        .filter((t) => t.assignedMarkerId === null)
-        .sort((a, b) => a.unassignedOrder - b.unassignedOrder)
-        .map((t) => t.id);
-
-      const assignMap = new Map<string, string>();
-      const count = Math.min(emptyMarkers.length, unassignedIds.length);
-      for (let i = 0; i < count; i++) {
-        assignMap.set(unassignedIds[i], emptyMarkers[i].id);
-      }
-
-      return prev.map((t) =>
-        assignMap.has(t.id) ? { ...t, assignedMarkerId: assignMap.get(t.id)! } : t
-      );
-    });
-  }, [sortedMarkers]);
-
-  // --- Unified Line-by-Line Chapter / Title / Marker Import Handler ---
+  // --- Unified Line-by-Line Chapter / Title / Marker Import Handler (Order-Preserving!) ---
   const handleImportUnifiedLines = useCallback(
     (lines: ParsedChapterLine[], options: UnifiedImportOptions) => {
       const frames = frameMapRef.current;
       const duration = metadata?.durationSec ?? 0;
 
-      const replaceAll = options.replaceExisting && options.replaceMode === 'all';
-      const replaceTitlesOnly = options.replaceExisting && options.replaceMode === 'titles-only';
-
-      const nextMarkers: Marker[] = replaceAll ? [] : [...markers];
-      const nextTitles: ChapterTitle[] = replaceAll || replaceTitlesOnly ? [] : [...titles];
-
-      // Pass 1: Process timestamped lines (timed chapters & timestamp-only markers)
-      for (const line of lines) {
-        if (line.timeSec === null) continue;
-
-        const clampedSec =
-          duration > 0 ? Math.max(0, Math.min(duration, line.timeSec)) : Math.max(0, line.timeSec);
-        const snappedIdx =
-          frames.length > 0 ? findFrameIndexByTime(frames, clampedSec) : Math.round(clampedSec * 30);
-        const frameEntry = frames[snappedIdx];
-        const finalFrameIdx = frameEntry ? frameEntry.frameIndex : snappedIdx;
-        const finalTimeSec = frameEntry ? frameEntry.timeSec : clampedSec;
-
-        let marker = nextMarkers.find(
-          (m) => m.frameIndex === finalFrameIdx || Math.abs(m.timeSec - finalTimeSec) < 0.35
-        );
-        if (!marker) {
-          marker = {
-            id: createId('mk'),
-            frameIndex: finalFrameIdx,
-            timeSec: finalTimeSec,
-          };
-          nextMarkers.push(marker);
-        }
-
-        if (line.title.length > 0) {
-          const existingTitleIdx = nextTitles.findIndex((t) => t.assignedMarkerId === marker!.id);
-          if (existingTitleIdx >= 0) {
-            nextTitles[existingTitleIdx] = {
-              ...nextTitles[existingTitleIdx],
-              text: line.title,
-            };
-          } else {
-            nextTitles.push({
-              id: createId('ch'),
-              text: line.title,
-              assignedMarkerId: marker.id,
-              unassignedOrder: 0,
-            });
-          }
-        }
-      }
-
-      // Pass 2: Process title-only lines (auto-assign to empty markers or add to unassigned pool)
-      const titleOnlyLines = lines.filter((line) => line.kind === 'title-only' && line.title.length > 0);
-      if (titleOnlyLines.length > 0) {
-        const occupied = new Set(
-          nextTitles.filter((t) => t.assignedMarkerId !== null).map((t) => t.assignedMarkerId!)
-        );
-        const emptyMarkers = options.autoAssignTitles
-          ? [...nextMarkers]
-              .sort((a, b) => a.timeSec - b.timeSec || a.frameIndex - b.frameIndex)
-              .filter((m) => !occupied.has(m.id))
-          : [];
-        let emptyCursor = 0;
-        let nextOrder = nextTitles.reduce((acc, t) => Math.max(acc, t.unassignedOrder), 0) + 1;
-
-        for (const line of titleOnlyLines) {
-          if (emptyCursor < emptyMarkers.length) {
-            const targetMarker = emptyMarkers[emptyCursor++];
-            nextTitles.push({
-              id: createId('ch'),
-              text: line.title,
-              assignedMarkerId: targetMarker.id,
-              unassignedOrder: 0,
-            });
-          } else {
-            nextTitles.push({
-              id: createId('ch'),
-              text: line.title,
-              assignedMarkerId: null,
-              unassignedOrder: nextOrder++,
-            });
-          }
-        }
-      }
-
-      setMarkers(nextMarkers);
-      setTitles(nextTitles);
-      if (replaceAll) {
+      setEntries((prev) =>
+        importParsedLinesIntoEntries(prev, lines, options, frames, duration)
+      );
+      if (options.replaceExisting && options.replaceMode === 'all') {
         setLastSelectedMarkerId(null);
+        setFocusedUntimedEntryId(null);
       }
       setRightTab('chapters');
+      setWorkspaceView('timeline');
     },
-    [markers, metadata?.durationSec, titles]
+    [metadata?.durationSec]
   );
+
+  // --- Spreadsheet Save / Cancel / Toggle Handlers ---
+  const handleSaveSpreadsheet = useCallback(
+    (
+      nextEntries: ChapterEntry[],
+      nextScratchpad: ScratchpadCells,
+      summary: SheetConversionResult['summary']
+    ) => {
+      previewLoopRangeRef.current = null;
+      setEntries(nextEntries);
+      setSessionScratchpad(nextScratchpad);
+      setSpreadsheetSearchRange(null);
+      setFocusedUntimedEntryId(null);
+      setIsSpreadsheetDirty(false);
+      setRightTab('chapters');
+      setWorkspaceView('timeline');
+      setStatusNotice(
+        translate('spreadsheet.savedStatusNotice', {
+          timed: summary.timedCount,
+          markers: summary.markerOnlyCount,
+          untimed: summary.untimedCount,
+        })
+      );
+    },
+    []
+  );
+
+  const handleCancelSpreadsheet = useCallback(() => {
+    previewLoopRangeRef.current = null;
+    setSpreadsheetSearchRange(null);
+    setIsSpreadsheetDirty(false);
+    setWorkspaceView('timeline');
+  }, []);
+
+  const handleToggleSpreadsheetView = useCallback(() => {
+    if (workspaceView === 'spreadsheet') {
+      if (!isSpreadsheetDirty) {
+        handleCancelSpreadsheet();
+      } else {
+        setSpreadsheetCancelRequest((prev) => prev + 1);
+      }
+      return;
+    }
+    setFocusedUntimedEntryId(null);
+    setWorkspaceView('spreadsheet');
+  }, [handleCancelSpreadsheet, isSpreadsheetDirty, workspaceView]);
 
   const handleReimportFromYouTubeDescription = useCallback(
     (replaceExisting: boolean) => {
@@ -1549,135 +1586,119 @@ export default function App() {
     seekToFrameIndex(target.frameIndex, false);
   }, [currentFrameIndex, internalScenes, seekToFrameIndex]);
 
-  // --- Global Keyboard Transport & Editing Bindings ---
+  // --- Global Keyboard Transport & Editing Bindings (ref-backed so 60fps playback never churns window listeners) ---
+  const globalKeyDownHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  globalKeyDownHandlerRef.current = (e: KeyboardEvent) => {
+    // Never intercept keys while an IME (Japanese, Chinese, Korean, Vietnamese, etc.) is composing
+    if (e.isComposing || e.keyCode === 229) return;
+
+    if (isTextImportOpen || isTextExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
+      if (e.key === 'Escape') {
+        setIsTextImportOpen(false);
+        setIsTextExportOpen(false);
+        setIsShortcutHelpOpen(false);
+        setIsYouTubeModalOpen(false);
+      }
+      return;
+    }
+
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable ||
+        target.closest('[data-spreadsheet-panel="true"]'))
+    ) {
+      return;
+    }
+
+    if (e.altKey) return;
+
+    const key = e.key;
+    const lower = key.toLowerCase();
+    const code = e.code;
+    const hasPrimaryMod = e.ctrlKey || e.metaKey;
+
+    if (key === 'ArrowLeft') {
+      e.preventDefault();
+      if (hasPrimaryMod) stepFrames(-30);
+      else if (e.shiftKey) stepFrames(-10);
+      else stepFrames(-1);
+      return;
+    }
+    if (key === 'ArrowRight') {
+      e.preventDefault();
+      if (hasPrimaryMod) stepFrames(30);
+      else if (e.shiftKey) stepFrames(10);
+      else stepFrames(1);
+      return;
+    }
+
+    if (key === 'ArrowUp' && e.shiftKey && !hasPrimaryMod) {
+      e.preventDefault();
+      adjustVolumeBy(0.1);
+      return;
+    }
+    if (key === 'ArrowDown' && e.shiftKey && !hasPrimaryMod) {
+      e.preventDefault();
+      adjustVolumeBy(-0.1);
+      return;
+    }
+
+    // Do not hijack browser shortcuts (Ctrl/Cmd + C, R, M, N, P, etc.)
+    if (hasPrimaryMod) return;
+
+    // Support both logical key and physical e.code so non-Latin keyboard layouts (IME, Arabic, Cyrillic, Greek) work ergonomics-first
+    if (key === ' ' || code === 'Space' || lower === 'k' || code === 'KeyK') {
+      e.preventDefault();
+      togglePlayPause();
+    } else if (lower === 'l' || code === 'KeyL') {
+      e.preventDefault();
+      playForward();
+    } else if (lower === 'j' || code === 'KeyJ') {
+      e.preventDefault();
+      playReverse();
+    } else if (key === ',' || code === 'Comma') {
+      e.preventDefault();
+      stepFrames(-1);
+    } else if (key === '.' || code === 'Period') {
+      e.preventDefault();
+      stepFrames(1);
+    } else if (lower === 'a' || code === 'KeyA') {
+      e.preventDefault();
+      stepSeconds(e.shiftKey ? -10 : -1);
+    } else if (lower === 'd' || code === 'KeyD') {
+      e.preventDefault();
+      stepSeconds(e.shiftKey ? 10 : 1);
+    } else if (key === '[' || code === 'BracketLeft') {
+      e.preventDefault();
+      stepSeconds(-15);
+    } else if (key === ']' || code === 'BracketRight') {
+      e.preventDefault();
+      stepSeconds(15);
+    } else if (lower === 'm' || code === 'KeyM') {
+      e.preventDefault();
+      if (e.shiftKey) handleToggleMute();
+      else addMarkerAtCurrent();
+    } else if (lower === 'p' || code === 'KeyP') {
+      e.preventDefault();
+      if (e.shiftKey) jumpPrevScene();
+      else jumpPrevMarker();
+    } else if (lower === 'n' || code === 'KeyN') {
+      e.preventDefault();
+      if (e.shiftKey) jumpNextScene();
+      else jumpNextMarker();
+    }
+  };
+
   useEffect(() => {
     if (appMode !== 'edit') return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Never intercept keys while an IME (Japanese, Chinese, Korean, Vietnamese, etc.) is composing
-      if (e.isComposing || e.keyCode === 229) return;
-
-      if (isTextImportOpen || isTextExportOpen || isShortcutHelpOpen || isYouTubeModalOpen) {
-        if (e.key === 'Escape') {
-          setIsTextImportOpen(false);
-          setIsTextExportOpen(false);
-          setIsShortcutHelpOpen(false);
-          setIsYouTubeModalOpen(false);
-        }
-        return;
-      }
-
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      if (e.altKey) return;
-
-      const key = e.key;
-      const lower = key.toLowerCase();
-      const code = e.code;
-      const hasPrimaryMod = e.ctrlKey || e.metaKey;
-
-      if (key === 'ArrowLeft') {
-        e.preventDefault();
-        if (hasPrimaryMod) stepFrames(-30);
-        else if (e.shiftKey) stepFrames(-10);
-        else stepFrames(-1);
-        return;
-      }
-      if (key === 'ArrowRight') {
-        e.preventDefault();
-        if (hasPrimaryMod) stepFrames(30);
-        else if (e.shiftKey) stepFrames(10);
-        else stepFrames(1);
-        return;
-      }
-
-      if (key === 'ArrowUp' && e.shiftKey && !hasPrimaryMod) {
-        e.preventDefault();
-        adjustVolumeBy(0.1);
-        return;
-      }
-      if (key === 'ArrowDown' && e.shiftKey && !hasPrimaryMod) {
-        e.preventDefault();
-        adjustVolumeBy(-0.1);
-        return;
-      }
-
-      // Do not hijack browser shortcuts (Ctrl/Cmd + C, R, M, N, P, etc.)
-      if (hasPrimaryMod) return;
-
-      // Support both logical key and physical e.code so non-Latin keyboard layouts (IME, Arabic, Cyrillic, Greek) work ergonomics-first
-      if (key === ' ' || code === 'Space' || lower === 'k' || code === 'KeyK') {
-        e.preventDefault();
-        togglePlayPause();
-      } else if (lower === 'l' || code === 'KeyL') {
-        e.preventDefault();
-        playForward();
-      } else if (lower === 'j' || code === 'KeyJ') {
-        e.preventDefault();
-        playReverse();
-      } else if (key === ',' || code === 'Comma') {
-        e.preventDefault();
-        stepFrames(-1);
-      } else if (key === '.' || code === 'Period') {
-        e.preventDefault();
-        stepFrames(1);
-      } else if (lower === 'a' || code === 'KeyA') {
-        e.preventDefault();
-        stepSeconds(e.shiftKey ? -10 : -1);
-      } else if (lower === 'd' || code === 'KeyD') {
-        e.preventDefault();
-        stepSeconds(e.shiftKey ? 10 : 1);
-      } else if (key === '[' || code === 'BracketLeft') {
-        e.preventDefault();
-        stepSeconds(-15);
-      } else if (key === ']' || code === 'BracketRight') {
-        e.preventDefault();
-        stepSeconds(15);
-      } else if (lower === 'm' || code === 'KeyM') {
-        e.preventDefault();
-        if (e.shiftKey) handleToggleMute();
-        else addMarkerAtCurrent();
-      } else if (lower === 'p' || code === 'KeyP') {
-        e.preventDefault();
-        if (e.shiftKey) jumpPrevScene();
-        else jumpPrevMarker();
-      } else if (lower === 'n' || code === 'KeyN') {
-        e.preventDefault();
-        if (e.shiftKey) jumpNextScene();
-        else jumpNextMarker();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    addMarkerAtCurrent,
-    adjustVolumeBy,
-    appMode,
-    handleToggleMute,
-    isTextImportOpen,
-    isTextExportOpen,
-    isShortcutHelpOpen,
-    isYouTubeModalOpen,
-    jumpNextMarker,
-    jumpNextScene,
-    jumpPrevMarker,
-    jumpPrevScene,
-    playForward,
-    playReverse,
-    stepFrames,
-    stepSeconds,
-    togglePlayPause,
-  ]);
+    const listener = (e: KeyboardEvent) => globalKeyDownHandlerRef.current(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, [appMode]);
 
   const currentFrameEntry = frameMapRef.current[currentFrameIndex] ?? null;
   const totalFrames = Math.max(
@@ -1685,8 +1706,8 @@ export default function App() {
     metadata?.estimatedTotalFrames ?? 0
   );
   const isOnMarker = useMemo(
-    () => markers.some((m) => Math.abs(m.frameIndex - currentFrameIndex) <= 1),
-    [currentFrameIndex, markers]
+    () => sortedMarkers.some((m) => Math.abs(m.frameIndex - currentFrameIndex) <= 1),
+    [currentFrameIndex, sortedMarkers]
   );
 
   return (
@@ -1766,11 +1787,24 @@ export default function App() {
           )}
         </nav>
 
-        {/* Zone 3: Language Selector + Primary Text Import & Export Actions */}
+        {/* Zone 3: Language Selector + Spreadsheet Edit + Primary Text Import & Export Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <LanguageSelector />
           {appMode === 'edit' ? (
             <>
+              <button
+                type="button"
+                onClick={handleToggleSpreadsheetView}
+                aria-pressed={workspaceView === 'spreadsheet'}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  workspaceView === 'spreadsheet'
+                    ? 'text-[#0D0F12] bg-emerald-300 ring-2 ring-emerald-400/60'
+                    : 'text-[#0D0F12] bg-emerald-400 hover:bg-emerald-300'
+                }`}
+              >
+                <Table2 className="w-3.5 h-3.5" />
+                {t('header.editAsSpreadsheet')}
+              </button>
               <button
                 type="button"
                 onClick={() => setIsTextImportOpen(true)}
@@ -1910,7 +1944,7 @@ export default function App() {
                 isOnMarker={isOnMarker}
               />
 
-              {/* Dual-Axis Scrubber & Keyboard-Linked Transport Controls */}
+              {/* Dual-Axis Scrubber, Conditional Zoomed Range Bar & Keyboard-Linked Transport Controls */}
               <TransportControls
                 currentTimeSec={currentTimeSec}
                 durationSec={metadata?.durationSec ?? 0}
@@ -1918,6 +1952,11 @@ export default function App() {
                 playbackMode={playbackMode}
                 markers={sortedMarkers}
                 internalScenes={internalScenes}
+                focusedSearchRange={focusedSearchRange}
+                onClearSearchRange={() => {
+                  setFocusedUntimedEntryId(null);
+                  setSpreadsheetSearchRange(null);
+                }}
                 onPlayForward={playForward}
                 onPlayReverse={playReverse}
                 onPause={pausePlayback}
@@ -1940,8 +1979,10 @@ export default function App() {
               role="separator"
               aria-orientation="vertical"
               aria-label={t('workspace.splitterAriaLabel')}
-              aria-valuenow={rightPanelWidth}
-              aria-valuemin={MIN_SIDEBAR_WIDTH}
+              aria-valuenow={activeRightPanelWidth}
+              aria-valuemin={
+                workspaceView === 'spreadsheet' ? MIN_SPREADSHEET_WIDTH : MIN_SIDEBAR_WIDTH
+              }
               tabIndex={0}
               title={t('workspace.splitterTitle')}
               onPointerDown={handleSplitterPointerDown}
@@ -1965,100 +2006,121 @@ export default function App() {
               />
             </div>
 
-            {/* Right Column: Vertical Marker/Chapter Matching & Strictly Separate Internal Scene Axis */}
+            {/* Right Column: Switches seamlessly between Timeline/Scenes and 2-Pane Spreadsheet Editor */}
             <aside
-              style={isDesktopLayout ? { width: `${rightPanelWidth}px` } : undefined}
-              className="w-full lg:w-auto shrink-0 flex flex-col border-t lg:border-t-0 bg-[#13161B] min-h-[480px] lg:min-h-0"
+              style={isDesktopLayout ? { width: `${activeRightPanelWidth}px` } : undefined}
+              className="w-full lg:w-auto shrink-0 flex flex-col border-t lg:border-t-0 bg-[#13161B] min-h-[520px] lg:min-h-0"
             >
-              {/* Axis Switcher: User Markers/Chapters vs Separate Reference Internal Scenes */}
-              <div className="p-2.5 border-b border-[#222731] bg-[#101318] shrink-0">
-                <div className="grid grid-cols-2 gap-1 p-1 bg-[#0B0D10] border border-[#222731] rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setRightTab('chapters')}
-                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
-                      rightTab === 'chapters'
-                        ? 'bg-[#202530] text-amber-300'
-                        : 'text-[#94A0B2] hover:text-[#F3F5F8]'
-                    }`}
-                  >
-                    <Bookmark className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">
-                      {t('workspace.tabMarkersChapters', { count: sortedMarkers.length })}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightTab('scenes')}
-                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
-                      rightTab === 'scenes'
-                        ? 'bg-[#202530] text-sky-300'
-                        : 'text-[#94A0B2] hover:text-[#F3F5F8]'
-                    }`}
-                  >
-                    <Compass className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">
-                      {t('workspace.tabInternalScenes', { count: internalScenes.length })}
-                    </span>
-                  </button>
-                </div>
-              </div>
+              {workspaceView === 'spreadsheet' ? (
+                <ChapterSpreadsheetPanel
+                  entries={entries}
+                  scratchpad={sessionScratchpad}
+                  frames={frameMapRef.current}
+                  durationSec={metadata?.durationSec ?? 0}
+                  getCurrentTimeSec={getCurrentTimeSec}
+                  onSeekToTime={seekToTime}
+                  onPreviewAtTime={previewAtTime}
+                  onSearchRangeChange={setSpreadsheetSearchRange}
+                  onSave={handleSaveSpreadsheet}
+                  onCancel={handleCancelSpreadsheet}
+                  onDirtyChange={setIsSpreadsheetDirty}
+                  cancelRequestToken={spreadsheetCancelRequest}
+                />
+              ) : (
+                <>
+                  {/* Axis Switcher: User Markers/Chapters vs Separate Reference Internal Scenes */}
+                  <div className="p-2.5 border-b border-[#222731] bg-[#101318] shrink-0">
+                    <div className="grid grid-cols-2 gap-1 p-1 bg-[#0B0D10] border border-[#222731] rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setRightTab('chapters')}
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
+                          rightTab === 'chapters'
+                            ? 'bg-[#202530] text-amber-300'
+                            : 'text-[#94A0B2] hover:text-[#F3F5F8]'
+                        }`}
+                      >
+                        <Bookmark className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">
+                          {t('workspace.tabMarkersChapters', { count: entries.length })}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRightTab('scenes')}
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors min-w-0 cursor-pointer ${
+                          rightTab === 'scenes'
+                            ? 'bg-[#202530] text-sky-300'
+                            : 'text-[#94A0B2] hover:text-[#F3F5F8]'
+                        }`}
+                      >
+                        <Compass className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">
+                          {t('workspace.tabInternalScenes', { count: internalScenes.length })}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Optional dismissible YouTube chapter import notice */}
-              {statusNotice && (
-                <div className="px-3.5 py-2 border-b border-[#222731] bg-amber-500/10 flex items-center justify-between gap-2 text-xs text-amber-200 shrink-0">
-                  <span className="leading-snug">{statusNotice}</span>
-                  <button
-                    type="button"
-                    onClick={() => setStatusNotice(null)}
-                    aria-label={t('workspace.dismissNotice')}
-                    className="p-0.5 text-amber-300/80 hover:text-amber-100 shrink-0 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  {/* Optional dismissible status notice */}
+                  {statusNotice && (
+                    <div className="px-3.5 py-2 border-b border-[#222731] bg-amber-500/10 flex items-center justify-between gap-2 text-xs text-amber-200 shrink-0">
+                      <span className="leading-snug">{statusNotice}</span>
+                      <button
+                        type="button"
+                        onClick={() => setStatusNotice(null)}
+                        aria-label={t('workspace.dismissNotice')}
+                        className="p-0.5 text-amber-300/80 hover:text-amber-100 shrink-0 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    {rightTab === 'chapters' ? (
+                      <ChapterTimelinePanel
+                        entries={entries}
+                        currentFrameIndex={currentFrameIndex}
+                        currentTimeSec={currentTimeSec}
+                        durationSec={metadata?.durationSec ?? 0}
+                        playbackMode={playbackMode}
+                        lastSelectedMarkerId={lastSelectedMarkerId}
+                        focusedUntimedEntryId={focusedUntimedEntryId}
+                        onSelectMarker={handleSelectMarker}
+                        onFocusUntimedEntry={setFocusedUntimedEntryId}
+                        onSeekToTime={seekToTime}
+                        onAddMarkerAtCurrent={addMarkerAtCurrent}
+                        onAssignCurrentTimeToEntry={assignCurrentTimeToEntry}
+                        onDeleteMarker={deleteMarker}
+                        onAddTitleForMarker={addTitleForMarker}
+                        onInsertUntimedTitleAt={handleInsertUntimedTitleAt}
+                        onUpdateTitleText={updateTitleText}
+                        onDeleteTitle={deleteTitle}
+                        onUnassignTitle={unassignTitle}
+                        onMoveOrSwapTitleBetweenEntries={handleMoveOrSwapTitleBetweenEntries}
+                        onStepEntryTitle={handleStepEntryTitle}
+                        onShiftTitlesDownFromEntry={handleShiftTitlesDownFromEntry}
+                        onAutoAssignUnassigned={autoAssignUnassigned}
+                      />
+                    ) : (
+                      <InternalScenePanel
+                        sourceType={metadata?.sourceType ?? 'local'}
+                        scenes={internalScenes}
+                        progress={progress}
+                        currentFrameIndex={currentFrameIndex}
+                        currentTimeSec={currentTimeSec}
+                        durationSec={metadata?.durationSec ?? 0}
+                        playbackMode={playbackMode}
+                        lastSelectedSceneId={lastSelectedSceneId}
+                        onSelectScene={handleSelectScene}
+                        onJumpPrevScene={jumpPrevScene}
+                        onJumpNextScene={jumpNextScene}
+                      />
+                    )}
+                  </div>
+                </>
               )}
-
-              <div className="flex-1 min-h-0 flex flex-col">
-                {rightTab === 'chapters' ? (
-                  <ChapterTimelinePanel
-                    markers={sortedMarkers}
-                    titles={titles}
-                    currentFrameIndex={currentFrameIndex}
-                    currentTimeSec={currentTimeSec}
-                    durationSec={metadata?.durationSec ?? 0}
-                    playbackMode={playbackMode}
-                    lastSelectedMarkerId={lastSelectedMarkerId}
-                    onSelectMarker={handleSelectMarker}
-                    onAddMarkerAtCurrent={addMarkerAtCurrent}
-                    onDeleteMarker={deleteMarker}
-                    onAddTitleForMarker={addTitleForMarker}
-                    onAddUnassignedTitle={addUnassignedTitle}
-                    onUpdateTitleText={updateTitleText}
-                    onDeleteTitle={deleteTitle}
-                    onUnassignTitle={unassignTitle}
-                    onMoveOrSwapTitleToMarker={moveOrSwapTitleToMarker}
-                    onStepTitleOnTimeline={stepTitleOnTimeline}
-                    onShiftTitlesDownFromMarker={shiftTitlesDownFromMarker}
-                    onReorderUnassignedTitle={reorderUnassignedTitle}
-                    onAutoAssignUnassigned={autoAssignUnassigned}
-                  />
-                ) : (
-                  <InternalScenePanel
-                    sourceType={metadata?.sourceType ?? 'local'}
-                    scenes={internalScenes}
-                    progress={progress}
-                    currentFrameIndex={currentFrameIndex}
-                    currentTimeSec={currentTimeSec}
-                    durationSec={metadata?.durationSec ?? 0}
-                    playbackMode={playbackMode}
-                    lastSelectedSceneId={lastSelectedSceneId}
-                    onSelectScene={handleSelectScene}
-                    onJumpPrevScene={jumpPrevScene}
-                    onJumpNextScene={jumpNextScene}
-                  />
-                )}
-              </div>
             </aside>
           </main>
         </div>
@@ -2078,6 +2140,7 @@ export default function App() {
         isOpen={isTextExportOpen}
         markers={sortedMarkers}
         titles={titles}
+        untimedTitleCount={untimedTitleCount}
         fileName={metadata?.fileName}
         videoDurationSec={metadata?.durationSec}
         onClose={() => setIsTextExportOpen(false)}
