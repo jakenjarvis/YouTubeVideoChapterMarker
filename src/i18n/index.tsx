@@ -602,7 +602,7 @@ function syncDocumentMetadata(locale: SupportedLocale): void {
         url: canonicalUrl,
         applicationCategory: 'MultimediaApplication',
         operatingSystem: 'Web Browser',
-        softwareVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.6.2',
+        softwareVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.6.3',
         browserRequirements: 'Requires a modern web browser with HTML5 video support',
         inLanguage: isExplicitLocaleUrl ? meta.htmlLang : SUPPORTED_LOCALES.map((item) => item.htmlLang),
         isAccessibleForFree: true,

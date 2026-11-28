@@ -7,6 +7,7 @@ import {
   formatTimecodeHMS,
   parseChapterTextLines,
   parseTimestampToSeconds,
+  resolveDefaultImportExportTab,
   splitTimecodeParts,
   validateYouTubeChapters,
 } from '../src/utils/timecode.ts';
@@ -360,4 +361,39 @@ describe('exportChapterText & validateYouTubeChapters', () => {
     );
   });
 });
+
+describe('resolveDefaultImportExportTab', () => {
+  it('opens import tab when no markers or no titled chapters exist yet', () => {
+    const markerOnly: Marker[] = [{ id: 'm1', frameIndex: 0, timeSec: 0 }];
+    const unassignedOnly: ChapterTitle[] = [
+      { id: 't1', text: 'Intro', assignedMarkerId: null, unassignedOrder: 0 },
+    ];
+    const whitespaceAssigned: ChapterTitle[] = [
+      { id: 't2', text: '   ', assignedMarkerId: 'm1', unassignedOrder: 0 },
+    ];
+    const orphanAssigned: ChapterTitle[] = [
+      { id: 't3', text: 'Orphan', assignedMarkerId: 'deleted_marker', unassignedOrder: 0 },
+    ];
+
+    assert.equal(resolveDefaultImportExportTab([], []), 'import');
+    assert.equal(resolveDefaultImportExportTab([], unassignedOnly), 'import');
+    assert.equal(resolveDefaultImportExportTab(markerOnly, []), 'import');
+    assert.equal(resolveDefaultImportExportTab(markerOnly, unassignedOnly), 'import');
+    assert.equal(resolveDefaultImportExportTab(markerOnly, whitespaceAssigned), 'import');
+    assert.equal(resolveDefaultImportExportTab(markerOnly, orphanAssigned), 'import');
+  });
+
+  it('opens export tab once at least one marker has a non-empty assigned chapter title', () => {
+    const markers: Marker[] = [
+      { id: 'm1', frameIndex: 0, timeSec: 0 },
+      { id: 'm2', frameIndex: 300, timeSec: 10 },
+    ];
+    const titles: ChapterTitle[] = [
+      { id: 't1', text: 'Opening', assignedMarkerId: 'm1', unassignedOrder: 0 },
+    ];
+
+    assert.equal(resolveDefaultImportExportTab(markers, titles), 'export');
+  });
+});
+
 

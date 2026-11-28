@@ -29,6 +29,7 @@ import { generateSampleVideoFile } from './utils/sampleVideoGenerator';
 import {
   createId,
   findFrameIndexByTime,
+  resolveDefaultImportExportTab,
   type ParsedChapterLine,
 } from './utils/timecode';
 import {
@@ -1780,7 +1781,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                setImportExportInitialTab('export');
+                setImportExportInitialTab(resolveDefaultImportExportTab(markers, titles));
                 setIsImportExportOpen(true);
               }}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0D0F12] bg-amber-400 hover:bg-amber-300 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
